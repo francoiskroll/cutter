@@ -222,7 +222,12 @@ refpathfull=$(realpath "$refpath")
 removereadstxtfull=$(realpath "$removereadstxt")
 
 # now run the R script
-Rscript readsToThrow.R \
+### directory where the present script is
+# this will allow us to locate R script, as cannot make it run from anywhere
+utilsdir=$(dirname "$0")
+pathRscript="$(echo "$utilsdir"$"/readsToThrow.R")"
+
+Rscript "$pathRscript" \
   $tmp2full \
   $refpathfull \
   $min_phred \
