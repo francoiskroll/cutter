@@ -11,7 +11,7 @@ Directories _bam_, _bamfilt_, _filterfastq_ are created in the folder where the 
 
 For filtering, alignFilterBack uses **filterBam.command**, which can also be used alone.
 
-Reference should in fasta format, all in lowercase, except PAM (if any) in uppercase. Multiple PAMs are supported.  
+Reference should be in fasta format, all in lowercase, except PAM (if any) in uppercase. Multiple PAMs are supported.  
 e.g. file _cog1Ex12.fa_, which is:
 ```
 > cog1Ex12
