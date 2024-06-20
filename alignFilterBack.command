@@ -48,7 +48,9 @@ checkDir() {
 ######################################
 
 ### read the flags/arguments given by user
-while getopts c:r:a:l:e:f:s:d:p: flag
+# each : means it requires an argument
+# -l does not require one, so : after
+while getopts c:r:a:le:f:s:d:p: flag
 do
     case "${flag}" in
         c) configpath=${OPTARG};;
@@ -80,7 +82,8 @@ echo "> References fasta: $refpath"
 ssconvert "$configpath" config.csv
 
 ################################################################################
-# about directories
+### about directories
+
 ### we set main output folder as folder where the config file is
 outdir=$(dirname "$configpath")
 
@@ -139,13 +142,16 @@ do
 
     ### in summary:
     echo "Aligning $fwd & $rvs to $refp"
+    echo ""
+
+    ### index the fasta reference
+    bwa index -a bwtsw "$refp"
 
     ### do the alignment using bwa
     # create the output bam filename, which should be well_ref.bam
     # ref from config file should be ampliconname.fa
     # from there, will get ampliconname to append to output filenames
     amp="$(echo "$ref" | cut -d'.' -f 1)" # cut gets everything before first '.', so e.g. psen1_2.fa becomes psen1_2
-    echo "$amp"
     # paste well and amp together, so we have e.g. A01_psen1_2
     bam="$(echo "$well"$"_""$amp"$".bam")"
     # we will put the bam file in the new folder we created above called 'bam'
@@ -189,7 +195,7 @@ do
 
         # filterBam.command includes sorting and indexing
         # check that we did create the filtered BAM file
-        checkPath "$bamfiltp" 
+        checkPath "$bamfiltp"
 
         ################################
         ### convert back to fastq
