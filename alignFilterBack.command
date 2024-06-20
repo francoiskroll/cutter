@@ -255,7 +255,7 @@ do
 
 done < "config.csv"
 
-# remove config.csv
+### remove config.csv
 rm config.csv
 
 shopt -u nullglob
