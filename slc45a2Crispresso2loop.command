@@ -6,22 +6,43 @@ for i in *.fastq # loop thru files in directory that finish by .fastq (we unzipp
 do
 
   FILE="$i"
-  DIR="$(echo "$i" | cut -d'_' -f 4)" # DIR (direction) should be R1 = Forward reads or R2 = Reverse reads
 
-  if [ "$DIR" = "R1" ]; then # do I have the Forward reads?
-  # if yes: need to find the Reverse reads
-    FWD="$FILE"
+  ### get the well
+  # will assume always first in filename, before first underscore _
+  # e.g. A01_xxx
+  WELL="$(echo "$i" | cut -d'_' -f 1)"
 
-    HALF1="$(echo "$FWD" | cut -d'R' -f 1)" # everything before 'R'
-    HALF2="$(echo "$FWD" | cut -d'_' -f 5)" # everything after '_'
-    RVS="$(echo $HALF1$"R2_"$HALF2)" # based on the name of the Forward file, this should be the name of the Reverse file
+  ### in the folder, find files that start with WELL
+  fastqpath=$(dirname "$FILE")
+  READS=$(find "$fastqpath" -type f -name "$WELL*")
+
+  # check that exactly two fastq files were found
+  readscount=$(echo "$READS" | wc -l)
+
+  if [ "$readscount" -ne 2 ]; then
+    echo "Error: there should be exactly TWO fastq files starting with '$WELL', but found $readscount."
+    exit 1
   fi
 
-  WELL="$(echo "$FWD" | cut -d'_' -f 1 | cut -d'-' -f 2)" # first cut gets everything before first '_'; second cut gets everything after first '-'
+  # will assume one is R1, one is R2
+  # but will not assume which is which to be safe
+  first=$(echo "$READS" | head -n 1)
+  second=$(echo "$READS" | head -n 2 | tail -n 1)
+  # keep only filename
+  firstnm=$(basename "$first")
+  # if first file has R1 in its name
+  if [[ "$firstnm" == *"R1"* ]]; then
+    FWD="$first"
+    RVS="$second"
+  else
+    RVS="$first"
+    FWD="$second"
+  fi
 
+  ### in summary:
   echo
   echo
-  echo "---- [ CRISPResso2 on "$"$WELL ] ----"
+  echo "---- [ CRISPResso2 on "$"$FWD & $RVS ] ----"
   echo
   echo
 
