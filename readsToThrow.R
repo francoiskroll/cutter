@@ -1,8 +1,6 @@
 # function to loop through reads in a SAM file
 # and for each read, check some filtering parameters
 
-# !!! hard-coded path path2fastarefs !!!
-
 
 # packages & small functions ----------------------------------------------
 
