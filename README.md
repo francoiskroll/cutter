@@ -19,14 +19,20 @@ tgtcaataaccgcacgttcaacagtgtgaaaggtaagatggagctgtattctcaccggatctgactgctggccaaAGGaa
 ```
 There are two PAMs: `AGG` and `CCT`.
 
+## Dependencies
+* `samtools`
+* `picard`  
+I had to install with homebrew, conda version had a conflict with Java.
+* `bwa-mem`
+
 ### alignFilterBack.command
 
 * `-c` path to .xlsx config file. It must have two columns (and only two): _well_ and _ref_. For example, it could look like:
 
-| well | ref |
-|:---|:---|
-|A01|geneX_amplicon2.fa|
-|B11|geneY_amplicon1.fa|
+    | well | ref |
+    |:---|:---|
+    |A01|geneX_amplicon2.fa|
+    |B11|geneY_amplicon1.fa|
 
 * `-r` path to directory containing fastq reads.
 
@@ -80,4 +86,14 @@ alignFilterBack.command -c ./config.xlsx -r ./reads/ -a ./refseqs/ -l -e 40 -f 1
 
 ```
 filterBam.command -i ./bam/D01_cog1Ex12.bam -e 40 -f 100 -s 0.2 -d 20 -p yes -o D01_cog1Ex12_filt.bam
+```
+
+## Other scripts
+
+### slc45a2Crispresso2loop.command
+This script is to run CRISPResso2 analysis on _slc45a2_ TAA>TGG prime editing MiSeq samples, with standard pegRNA. It simply runs on a loop in a folder of fastq, there are no flags.
+
+CRISPResso2 command is:
+```
+CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCTCATAAGCCCCATTTTGGGTTTTATCCTACAGCCCGTCATCGGCTCGGCGAGCGACTACTGTAGGTCGTCATAAGGCCGAAGGAGACCGTACATACTCTTACTGGGGATTCTGATGTTAGTGGGCATGACTTTATTTCTAAATGGAGATGCAGTCACAACAGGTGGGTGA --amplicon_name slc45a2TAA --prime_editing_pegRNA_spacer_seq gactactgtaggtcgtcata --prime_editing_pegRNA_extension_seq tctccttcggccccatgacgacctacagt --prime_editing_pegRNA_scaffold_seq gttttagagctagaaatagcaagttaaaataaggctagtccgttatcaacttgaaaaagtgggaccgagtcggtcc
 ```
