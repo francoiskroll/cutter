@@ -225,7 +225,7 @@ do
         # full path is
         bamfiltNSp="$(echo "$outdir"$"/bamfilt/""$bamfiltNS")"
         # now sort using samtools
-        samtools sort -n "$bamp" -o "$bamfiltNSp"
+        samtools sort -n "$bamfiltp" -o "$bamfiltNSp"
 
         # ready to convert
         bedtools bamtofastq -i "$bamfiltNSp" \
