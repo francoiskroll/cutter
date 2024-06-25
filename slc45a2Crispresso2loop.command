@@ -47,6 +47,16 @@ do
   echo
 
   # now run CRISPResso2
+  # create output folder, in parent folder of folder containing the reads
+  # get full path of FWD file
+  fwdp=$(realpath "$FWD")
+  # get the folder in which it is
+  readdir="$(dirname "$fwdp")"
+  # get the parent folder
+  pardir="$(dirname "$readdir")"
+  # this is where we create output folder
+  outdir="$(echo "$pardir"$"/crispresso")"
+  mkdir "$outdir"
 
   # previously, was doing actual prime-editing mode
   # (see README.md in 23117_sequencing/231117_miseq/plasmidsaurus for details on how I built the command)
@@ -56,7 +66,7 @@ do
   
   # now, I prefer to simply use CRISPResso for alignment,
   # and call all the mutations myself
-  CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCTCATAAGCCCCATTTTGGGTTTTATCCTACAGCCCGTCATCGGCTCGGCGAGCGACTACTGTAGGTCGTCATAAGGCCGAAGGAGACCGTACATACTCTTACTGGGGATTCTGATGTTAGTGGGCATGACTTTATTTCTAAATGGAGATGCAGTCACAACAGGTGGGTGA
+  CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCTCATAAGCCCCATTTTGGGTTTTATCCTACAGCCCGTCATCGGCTCGGCGAGCGACTACTGTAGGTCGTCATAAGGCCGAAGGAGACCGTACATACTCTTACTGGGGATTCTGATGTTAGTGGGCATGACTTTATTTCTAAATGGAGATGCAGTCACAACAGGTGGGTGA --output_folder "$outdir"
 done
 
 shopt -u nullglob

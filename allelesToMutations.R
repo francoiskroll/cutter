@@ -60,6 +60,13 @@ allelesToMutations <- function(alpath) {
   mutdf$stop <- as.integer(mutdf$stop)
   mutdf$bp <- as.integer(mutdf$bp)
   
+  ### calculate total number of reads for this sample, i.e. coverage
+  # and add it as column
+  splcov <- sum(als$`#Reads`)
+  cat('\t \t \t \t >>> Total number of reads:', splcov, '\n')
+  mutdf <- mutdf %>%
+    mutate(splcov=splcov)
+  
   # return
   return(mutdf)
   
@@ -76,6 +83,11 @@ alleleToMutation <- function(ref,
                              ali,
                              nreads,
                              rowi) {
+  
+  ### REFERENCE
+  refdf <- recordRef(ref=ref,
+                     ali=ali)
+  
   ### DELETIONS
   deldf <- recordDel(ref=ref,
                      ali=ali)
@@ -88,9 +100,26 @@ alleleToMutation <- function(ref,
   subdf <- recordSub(ref=ref,
                      ali=ali)
   
+  ### EXCEPTION: once in a while, there is a mutation at the edge of the read
+  # so recordDel/Ins/Sub skips it
+  # ! we will count the read as reference
+  if(length(refdf)==0 & length(deldf)==0 & length(insdf)==0 & length(subdf)==0) {
+    cat('\t \t \t \t \t >>> Only a mutation at the edge of the read found, counting this read as reference.\n')
+    refdf <- c(type='ref',
+               start=NA,
+               stop=NA,
+               bp=NA,
+               refseq=NA,
+               altseq=NA)
+  }
+  
   ### pool & return
   # pool
-  mutdf <- rbind(deldf, insdf, subdf)
+  mutdf <- as.data.frame(rbind(refdf, deldf, insdf, subdf))
+  # sometimes messes up the column names, add them back
+  colnames(mutdf) <- c('type', 'start', 'stop', 'bp', 'refseq', 'altseq')
+  # delete any row names
+  row.names(mutdf) <- NULL
   # if more than one read like this, multiply the rows
   mutdfm <- do.call('rbind', replicate(nreads, mutdf, simplify=FALSE))
   
@@ -100,6 +129,34 @@ alleleToMutation <- function(ref,
   
   return( mutdfm )
   
+}
+
+
+# function recordRef() ----------------------------------------------------
+
+# ref = reference sequence (aligned), split
+# ali = aligned sequence, split
+
+# if aligned sequence is the same as reference,
+# we record special "ref" mutation
+
+recordRef <- function(ref,
+                      ali) {
+  
+  # put back the sequences together
+  refc <- paste0(ref, collapse='') # c for collapsed
+  alic <- paste0(ali, collapse='')
+  
+  if( identical(refc , alic) ) {
+    cat('\t \t \t \t >>> Detected reference allele.\n')
+    return(c(type='ref',
+             start=NA,
+             stop=NA,
+             bp=NA,
+             refseq=NA,
+             altseq=NA))
+  }
+  # else, do nothing
 }
 
 
@@ -114,6 +171,17 @@ recordDel <- function(ref,
   # find all deleted positions
   # these are positions where aligned sequence is a gap -
   delpos <- which(ali=='-')
+  
+  ### if no deletion, we return an empty dataframe in the correct format
+  if(length(delpos)==0) {
+    return(c(type=character(),
+             start=integer(),
+             stop=integer(),
+             bp=integer(),
+             refseq=character(),
+             altseq=character()))
+  } # return would stop function here, so consider below is `else`
+  
   # each deletion starts when there is a break in the sequence
   # e.g. 9, 10, 11, 22, 23, 24
   # means one deletion starts at #9 and one deletion starts at #22
@@ -193,6 +261,17 @@ recordIns <- function(ref,
   # find all inserted positions
   # these are positions where reference sequence is a gap -
   inspos <- which(ref=='-')
+  
+  ### if no insertion, we return an empty dataframe in the correct format
+  if(length(inspos)==0) {
+    return(c(type=character(),
+             start=integer(),
+             stop=integer(),
+             bp=integer(),
+             refseq=character(),
+             altseq=character()))
+  } # return would stop function here, so consider below is `else`
+  
   # each insertion starts when there is a break in the sequence
   # e.g. 9, 10, 11, 22, 23, 24
   # means one insertion starts at #9 and one insertion starts at #22
@@ -278,6 +357,16 @@ recordSub <- function(ref,
   subpos <- which(ref!=ali) # these are all positions where aligned does not match reference
   # from this, remove where there are gaps in either the aligned or the reference sequence
   subpos <- subpos[! subpos %in% sort(unique(c(which(ref=='-'), which(ali=='-'))))] # i.e. keep only subpos which are *not* positions with gap
+  
+  ### if no substitution, we return an empty dataframe in the correct format
+  if(length(subpos)==0) {
+    return(c(type=character(),
+             start=integer(),
+             stop=integer(),
+             bp=integer(),
+             refseq=character(),
+             altseq=character()))
+  } # return would stop function here, so consider below is `else`
   
   # ! make substitutions as long as possible,
   # i.e. we should not record one substitution 1bp and another one next to it 1bp, but rather one substitution of 2bp

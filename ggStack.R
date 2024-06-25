@@ -1,5 +1,5 @@
 #####################################################
-# ~ ZPRI: read labels to stack plot ~
+# ~ ZPRI: reads labels to stack plot ~
 #
 #
 # Francois Kroll 2023
@@ -69,183 +69,93 @@ library(stringr)
 sem <- function(x) sd(x)/sqrt(length(x))
 
 
-# function ggFrameshift(...) ----------------------------------------------
-
-ggStack <- function(rcats,
-                    onlygene='all',
+ggStack <- function(rlab,
                     onlylocus='all',
-                    onlysource='all',
                     locusorder=NA,
-                    covFilter=TRUE,
-                    mincov=30,
-                    mutated_col='#5a6974',
-                    frameshift_col='#f1876b',
-                    xtext=TRUE,
+                    catorder=c('reference', 'mutated', 'impure', 'pure'),
+                    catcols=c('#aeb3b4', '#fcb505', '#a3bbdb', '#417dcd'),
+                    mincov=NA,
+                    xtextOrNo=TRUE,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
-                    annotateOrNo=FALSE,
-                    annotateSize=2,
                     exportOrNo=TRUE,
                     width=159.1,
                     height=82.03,
-                    exportfull) {
+                    exportpath) {
   
+  ### check exportpath is a pdf
+  frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
+  if(frmt!='pdf')
+    stop('\t \t \t \t >>> exportpath should end with .pdf.\n')
   
-  # import ampliCan results -------------------------------------------------
-  if(is.character(amplican)) { # if string then assume we are being given the path
-    amp <- read.csv(amplican)
-  } else {
-    amp <- amplican
+  ### import reads labels, if necessary
+  if(is.character(rlab)) { # if string then assume we are being given the path
+    rlab <- read.csv(rlab)
   }
-  # if not, we are given the dataframe so we do not have to import it
+  # if not a string, we are given the dataframe so we do not have to import it
   
-  # split the sample ID into its components ---------------------------------
+  ### tally by sample and read category
+  rtal <- rlab %>%
+    group_by(sample, locus, well, splcov, cat) %>%
+    tally(name='nreads')
   
-  # make sure sample ID is character and not factor
-  amp$ID <- as.character(amp$ID)
+  ### as check, separately, count total number of reads for each sample
+  rtot <- rlab %>%
+    group_by(sample) %>%
+    tally(name='ntot')
+  # add the total to tally from above
+  rtal <- right_join(rtal, rtot, by='sample')
+  # check that splcov is always = ntot
+  if(!identical(rtal$splcov, rtal$ntot))
+    stop('\t \t \t \t >>> Sample\'s coverage calculated at the start is not equal to adding reads from the different categories.\n')
+  # can delete ntot
+  rtal$ntot <- NULL
   
-  col_locus <- as.character(lapply(strsplit(amp$ID, '_'), function(x) x[1])) # e.g. psen2.1_ko_8 >> psen2.1
-  col_gene <- as.character(lapply(strsplit(col_locus, '\\.'), function(x) x[1])) # psen2.1 >> psen2
-  col_locusnum <- as.character(lapply(strsplit(col_locus, '\\.'), function(x) x[2])) # psen2.1 >> 1
-  col_grp <- as.character(lapply(strsplit(amp$ID, '_'), function(x) x[2])) # e.g. psen2.1_ko_8 >> ko
+  ### calculate proportions
+  rtal <- rtal %>%
+    mutate(catpro=nreads/splcov)
   
-  # for sample_num, I have not been consistent
-  # either psen2.1_ko_8 or psen2.1_ko8
-  
-  grp_spl <- sapply(amp$ID, function(id) {
-    # which(...) finds the first _ (+1 for position just after)
-    # then we take everything after
-    return ( substr( id, start=which(strsplit(id, '')[[1]] == '_')[1]+1 , stop=nchar(id) ) )
-    # psen2.1_ko_8 >> ko_8
-    # psen2.1_ko8 >> ko8
-  })
-  
-  # now get the grp
-  col_grp <- str_extract(grp_spl, pattern=regex('[A-Z a-z]+')) # regex, any uppercase or lowercase letter, one time or more (+)
-  # now get the sample number
-  col_spl <- str_extract(grp_spl, pattern=regex('\\d+')) # regex, any digit, one time or more (+)
-  
-  # do another version of grp_spl, we want e.g. ko8 for all
-  col_grpspl <- paste0(col_grp, col_spl)
-  
-  # add them to data
-  amp <- amp %>%
-    mutate(samplenum=col_spl, .after='ID') %>%
-    mutate(grp=col_grp, .after='ID') %>%
-    mutate(grpsamplenum=col_grpspl, .after='ID') %>%
-    mutate(locusnum=col_locusnum, .after='ID') %>%
-    mutate(locus=col_locus, .after='ID') %>%
-    mutate(gene=col_gene, .after='ID')
-  
-  
-  # keep only source we want to plot ----------------------------------------
-  if (onlysource != 'all') {
-    amp <- amp %>%
-      subset(source==onlysource)
-  }
-  
-  
-  # keep only gene we want to plot ------------------------------------------
-  if (onlygene[1] != 'all') {
-    amp <- amp %>%
-      subset(gene %in% onlygene)
-  }
-  
-  # keep only locus we want to plot ------------------------------------------
+  ### keep only locus we want to plot
   if (onlylocus[1] != 'all') {
-    amp <- amp %>%
-      subset(locus %in% onlylocus)
+    rtal <- rtal %>%
+      filter(locus %in% onlylocus)
   }
   
-  
-  # filter low coverage samples ---------------------------------------------
-  if (covFilter) {
+  ### filter low coverage samples
+  if (!is.na(mincov)) {
     
     # find their positions
-    lcis <- which(amp$Reads_Filtered < mincov) # low coverage indices
+    lcis <- which(rtal$splcov < mincov) # low coverage indices
     
     # tell user we are throwing them out
     if (length(lcis) != 0) { # are there any samples to throw?
       for (i in 1:length(lcis)) {
-        cat('\t \t \t \t >>> Excluding sample', as.character(amp[lcis[i], 'ID']), 'because its coverage is', as.numeric(amp[lcis[i], 'Reads_Filtered']), 'x \n')
+        cat('\t \t \t \t >>> Excluding sample', as.character(rtal[i, 'sample']),
+            'because its coverage is', as.numeric(rtal[i, 'splcov']), 'x.\n')
       }
     }
     
     # exclude them
-    amp <- amp %>%
-      subset(Reads_Filtered >= mincov)
+    rtal <- rtal %>%
+      filter(splcov >= mincov)
     
   }
   
-  
-  # calculate frameshift/nonframeshift --------------------------------------
-  
-  # total number of reads = Reads_Filtered
-  # stacked barplot is in fact two barplots on top of each other
-  # so one read cannot be in two categories at once (cannot be in both edited & frameshifted)
-  # >> need to compute reads *not* frameshifted, and add that category on top of reads frameshifted
-  # so total height will be reads frameshifted + reads mutated but not frameshifted = all reads mutated
-  
-  amp$edit <- amp$Reads_Edited/amp$Reads_Filtered # proportion of filtered reads that have edits
-  amp$frameshift <- amp$Reads_Frameshifted/amp$Reads_Filtered # proportion of filtered reads that have frameshift
-  # ! this is not the same as proportion of edited reads that have frameshift
-  # this is because total height of the plot (100% of reads) should be = total number of reads (Reads_Filtered)
-  # not total number of edited reads
-  
-  # proportion of reads edited but not frameshifted
-  amp$nonframeshift <- (amp$Reads_Edited - amp$Reads_Frameshifted) / amp$Reads_Filtered
-  # i.e. reads edited but not frameshifted (so left = reads mutated but indel is a multiple of 3), as a proportion of total number of reads
-  
-  
-  # control order of samples in plot ----------------------------------------
-  
-  sampleorder <- as.character(amp[order(amp$locus, -rank(amp$grp)), 'ID'])
-  # i.e. order first by locus (alphabetical order), then by grp (inversed alphabetical order, so scr then ko)
-  amp$ID <- factor(amp$ID, levels=sampleorder)
-  
-  # set order of loci, if given by the user
+  ### control order of loci, if given by the user
   if(!is.na(locusorder[1])) {
-    amp$locus <- factor(amp$locus, levels=locusorder)
+    rtal$locus <- factor(rtal$locus, levels=locusorder)
   }
   
+  ### control order of type in plot
+  # categories will in stacked barplot from top to bottom
+  rtal$cat <- factor(rtal$cat, levels=catorder)
   
-  # pivot to long format ----------------------------------------------------
-  # for plotting
-  
-  ampl <- amp %>%
-    select(ID, gene, locus, locusnum, grpsamplenum, grp, samplenum, frameshift, nonframeshift) %>%
-    pivot_longer(cols=-c(ID, gene, locus, locusnum, grpsamplenum, grp, samplenum),
-                 names_to='type',
-                 values_to='pro')
-  
-  
-  # control order of type in plot -------------------------------------------
-  
-  ampl$type <- factor(ampl$type, levels=c('nonframeshift', 'frameshift'))
-  
-  
-  
-  # prepare annotations -----------------------------------------------------
-  
-  # we want to write on the bars the column grpsamplenum, i.e. ko1, ko2, etc.
-  # turn half of them (the non-frameshift) to NA, otherwise it will write them twice
-  ampl[which(ampl$type=='nonframeshift'), 'grpsamplenum'] <- NA
-  
-  
-  
-  # plot --------------------------------------------------------------------
-  
-  framestack <- ggplot (data=ampl, aes (x=ID, y=pro, fill=type)) +
+  ### plot
+  ggstack <- ggplot(data=rtal, aes (x=sample, y=catpro, fill=cat)) +
     facet_grid(~locus, scales='free_x', space='free') + # space='free' lets subplots being different width,
     # which results in bar width staying equal regardless of number of samples for each locus
     geom_col(width=0.8) +
-    
-    # annotate grp_samplenum on bar
-    {if(annotateOrNo) (geom_text(aes(x=ID, y=0.03, label=grpsamplenum, colour=grp), angle=90, hjust=0, size=2))} +
-    # should write KO in white (because usually in front of orange/grey), SCR in black (because usually in front of white background)
-    {if(annotateOrNo) (scale_colour_manual(values=c('white', 'black')))} +
-    
-    scale_fill_manual(drop=FALSE, values=c(mutated_col, frameshift_col)) +
+    scale_fill_manual(drop=FALSE, values=catcols) +
     theme_minimal() +
     theme(
       strip.text.x=element_blank(),
@@ -260,87 +170,22 @@ ggStack <- function(rcats,
     scale_y_continuous(breaks=c(0, 0.25, 0.5, 0.75, 1),
                        labels=c(0, 25, 50, 75, 100)) +
     
-    {if(ytextOrNo) ylab('% reads')} +
-    {if(!ytextOrNo) ylab('')} +
+    {if(ynameOrNo) ylab('% reads')} +
+    {if(!ynameOrNo) ylab('')} +
     
-    {if(!xtext) theme(axis.text.x=element_blank())} +
-    
+    {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
     {if(!ytextOrNo) theme(axis.text.y=element_blank())}
   
-  print(framestack)
+  print(ggstack)
   
   
-  
-  # export plot -------------------------------------------------------------
-  
+  ### export plot
   if (exportOrNo) {
-    ggsave(exportfull, plot=framestack, width=width, height=height, unit='mm', device=cairo_pdf)
+    ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm', device=cairo_pdf)
   }
   
   
-  # summary statistics ------------------------------------------------------
-  
-  # will simply do summary statistics scr vs ko on the data we have at this stage
-  # that means either user asked for a single gene and we will calculate summary statistics just for this gene;
-  # or user asked for all samples to be plotted and we will calculate summary statistics for all samples
-  
-  # tell user summary stats
-  cat('\n \n \t \t \t \t >>> SUMMARY STATS... \n')
-  
-  cat('\n \n \t \t \t by group \n')
-  
-  ampsum <- amp %>%
-    select(ID, gene, locus, locusnum, grp, samplenum, edit, frameshift, nonframeshift) %>%
-    pivot_longer(cols=-c(ID, gene, locus, locusnum, grp, samplenum),
-                 names_to='type',
-                 values_to='pro') %>%
-    group_by(grp, type) %>%
-    summarise_at(vars(pro),
-                 list(
-                   mean= ~ mean(.),
-                   sd= ~ sd(.),
-                   sem= ~ sem(.),
-                   nspl= ~ length(.)
-                 ))
-  
-  ampsum %>%
-    print()
-  
-  # give also complete mean / sd (sometimes easier to round properly to report in text)
-  cat('\t \t \t \t full means: ')
-  print(ampsum$mean)
-  cat('\n \t \t \t \t full sds: ')
-  print(ampsum$sd)
-  
-  
-  cat('\n \n \t \t \t by locus \n')
-  
-  ampsum <- amp %>%
-    select(ID, gene, locus, locusnum, grp, samplenum, edit, frameshift, nonframeshift) %>%
-    pivot_longer(cols=-c(ID, gene, locus, locusnum, grp, samplenum),
-                 names_to='type',
-                 values_to='pro') %>%
-    group_by(locus, grp, type) %>%
-    summarise_at(vars(pro),
-                 list(
-                   mean= ~ mean(.),
-                   sd= ~ sd(.),
-                   sem= ~ sem(.),
-                   nspl= ~ length(.)
-                 ))
-  
-  ampsum %>%
-    print()
-  
-  # give also complete mean / sd (sometimes easier to round properly to report in text)
-  cat('\t \t \t \t full means: ')
-  print(ampsum$mean)
-  cat('\n \t \t \t \t full sds: ')
-  print(ampsum$sd)
-  
-  
-  
-  # return processed amplican results ---------------------------------------
-  return(amp)
+  ### return processed tallies
+  invisible(rtal)
   
 } # closes the function

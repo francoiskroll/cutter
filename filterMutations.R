@@ -56,16 +56,36 @@ filterMutations <- function(muttb,
   if(!is.na(cutpos) & is.na(cutdist))
     stop('\t \t \t \t >>> Error filterMutations: please give cutdist parameter, or set both cutpos and cutdist to NA to turn filter OFF. \n')
   
-  # record total number of reads first
-  cov <- length(unique(muttb$rid))
-  cat('\t \t \t \t >>> Coverage:', cov, 'reads \n')
+  ### record total number of reads from muttb
+  # this is calculated as sum of #Reads column in CRISPResso's Alleles
+  # so will include reference reads & mutation we discarded here
+  # sanity check: check it is just one total
+  if(length(unique(muttb$splcov))!=1)
+    stop('\t \t \t \t filterMutations: More than one value in splcov column, which does not make sense.\n')
+  splcov <- unique(muttb$splcov)
   
-  # create unique mutation ID
+  ### create unique mutation ID
   muttb <- muttb %>%
     mutate(mutid=paste(type, start, stop, bp, refseq, altseq, sep='_'), .before=1)
+  # for "ref" mutation, better to just have mutid as "ref"
+  muttb[which(muttb$mutid=='ref_NA_NA_NA_NA_NA'), 'mutid'] <- 'ref'
   
-  cat('\t \t \t \t >>> Before filtering:', length(unique(muttb$mutid)),'unique mutations. \n')
+  ### keep ref mutations aside
+  # we should never remove them
+  # so keep them aside then we will put them back after
+  tbref <- muttb %>%
+    filter(mutid=='ref')
   
+  # store the real mutations
+  muttb <- muttb %>%
+    filter(mutid!='ref')
+  
+  ### now we can start filtering
+  cat('\t \t \t \t >>> Before filtering:', length(unique(muttb$mutid)),'unique mutations.\n')
+  
+  ### store the names of the mutated reads
+  rmutids <- unique(muttb$rid)
+  cat('\t \t \t \t >>> Before filtering:', length(rmutids),'mutated reads.\n')
   
   ### filter1: at least n reads calling the mutation
   # talr for tally of number of reads
@@ -300,18 +320,41 @@ filterMutations <- function(muttb,
       filter(type!='sub')
     
     # left with
-    cat('\t \t \t \t >>> After remove substitutions:', length(unique(muttb$mutid)) ,'unique mutations left. \n')
+    cat('\t \t \t \t >>> After removing substitutions:', length(unique(muttb$mutid)) ,'unique mutations left. \n')
   }
   
+  ###### filtering is done
+  
+  ### record the mutated read IDs now
+  rmutidsFIN <- unique(muttb$rid)
+  cat('\t \t \t \t >>> After filtering:', length(rmutidsFIN),'mutated reads.\n')
+  # so we filtered out those read IDs:
+  filtids <- rmutids[which(!rmutids %in% rmutidsFIN)]
+  if(length(filtids)>0) {
+    cat('\t \t \t \t \t >>> so we filtered out', length(filtids),'reads; assuming those reads should be counted as reference.\n')
+    # preparing a data frame with those read IDs
+    ref2add <- data.frame(mutid='ref',
+                          type='ref',
+                          start=NA,
+                          stop=NA,
+                          bp=NA,
+                          refseq=NA,
+                          altseq=NA,
+                          rid=filtids,
+                          splcov=splcov)
+    # adding those reference reads to the reference reads we already kept aside above
+    tbref <- rbind(tbref, ref2add)
+  }
+  
+  ### filtering is done, add back ref mutations
+  muttb <- rbind(tbref, muttb)
   
   ### calculate frequencies
-  # calculate tally again
-  # add some columns
+  # tally number of reads that has each mutation
   talr <- muttb %>%
     group_by(mutid) %>%
     tally(name='nreads') %>%
-    mutate(covr=cov) %>%
-    mutate(freq=nreads/covr)
+    mutate(freq=nreads/splcov)
   
   # "wish-list": could add information from control sample too
   # e.g. frequency in control sample
