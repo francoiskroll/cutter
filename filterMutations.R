@@ -89,7 +89,7 @@ filterMutations <- function(muttb,
   
   ### filter1: at least n reads calling the mutation
   # talr for tally of number of reads
-  if(!is.na(minnreads)) {
+  if(!is.na(minnreads) & nrow(muttb)!=0) { # also need to check we have any mutations to filter
     talr <- muttb %>%
       group_by(mutid) %>%
       tally()
@@ -122,7 +122,7 @@ filterMutations <- function(muttb,
   # there are more of them towards spacer, upstream
   # so taking this into account could be a tiny bit more accurate
   
-  if(!is.na(cutpos) & !is.na(cutdist)) {
+  if(!is.na(cutpos) & !is.na(cutdist) & nrow(muttb)!=0) { # also need to check we have any mutations left to filter
     cat('\t \t \t \t >>> Filtering by cut window ON. \n')
     # previous version, filter was looking whether start position was within window cut - cutdist until cut + cutdist
     # the issue with this solution is:
@@ -152,7 +152,7 @@ filterMutations <- function(muttb,
 
   ### if user wants to filter by end of RHA position
   # exactly same logic as for DSB position
-  if(!is.na(rhapos) & !is.na(rhadist)) {
+  if(!is.na(rhapos) & !is.na(rhadist) & nrow(muttb)!=0) { # also need to check we have any mutations left to filter
     cat('\t \t \t \t >>> Filtering by RHA window ON.\n')
     # we loop through muttb
     rha_keepornot <- sapply(1:nrow(muttb), function(nro) {
@@ -171,9 +171,9 @@ filterMutations <- function(muttb,
   if( exists('dsb_keepornot') & exists('rha_keepornot') ) {
     # we do OR operation, i.e. return TRUE if TRUE for DSB or RHA
     keepornot <- dsb_keepornot | rha_keepornot
-  } else if( exists(dsb_keepornot) & !exists(rha_keepornot) ) {
+  } else if( exists('dsb_keepornot') & !exists('rha_keepornot') ) {
     keepornot <- dsb_keepornot
-  } else if( !exists(dsb_keepornot) & exists(rha_keepornot) ) {
+  } else if( !exists('dsb_keepornot') & exists('rha_keepornot') ) {
     keepornot <- rha_keepornot
   }
   
@@ -237,7 +237,7 @@ filterMutations <- function(muttb,
   # if filter is ON, i.e. we are given a/some control sample mutation table(s)
   # if given one: it should be a data frame, jumps below
   # if given multiple: it should be a list of data frames, deal with this case now
-  if( inherits(controltb, 'list') ) {
+  if( inherits(controltb, 'list') & nrow(muttb)!=0) {  # also need to check we have any mutations left to filter
     # note, data frame is also a list in R, so need to test if *actually* a list with inherits
     
     # ! next, we will count number of unique reads

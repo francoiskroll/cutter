@@ -35,7 +35,9 @@ callMutations <- function(copath,
     stop('\t \t \t \t >>> Expecting meta file to be .xlsx.\n')
   # import it
   meta <- read.xlsx(metapath)
-  # check it has columns well & locus
+  # check it has columns rundate & well & locus
+  if(!'rundate' %in% colnames(meta))
+    stop('\t \t \t \t >>> Error: expecting column "rundate" in meta file.\n')
   if(!'well' %in% colnames(meta))
     stop('\t \t \t \t >>> Error: expecting column "well" in meta file.\n')
   if(!'locus' %in% colnames(meta))
@@ -51,6 +53,7 @@ callMutations <- function(copath,
   ### find alleles table
   # loop through the directories,
   mutL <- lapply(1:length(dirs), function(di) {
+    cat('\n')
     # path to Alleles_frequency_table.zip should be:
     alzip <- paste(dirs[di], 'Alleles_frequency_table.zip', sep='/')
     # check we found it
@@ -65,9 +68,11 @@ callMutations <- function(copath,
       stop('\t \t \t \t >>> Error: after unzipping, expecting Alleles_frequency_table.txt in folder', dirs[di], '.\n')
     
     ### convert alleles table to mutation table
+    cat('\t \t \t \t >>> Calling mutations from', altxt,'\n')
     muttb <- allelesToMutations(alpath=altxt)
     
     ### filter the detected mutations
+    cat('\t \t \t \t >>> Filtering mutation calls.\n')
     mutf <- filterMutations(muttb=muttb,
                             minnreads=minnreads,
                             cutpos=cutpos,
@@ -104,11 +109,12 @@ callMutations <- function(copath,
     ## add meta information to mutation table
     # TODO: here could be good to just add all meta columns?
     mutf <- mutf %>%
+      mutate(locus=meta[metarow, 'locus'], .before=1) %>%
       mutate(well=meta[metarow,'well'], .before=1) %>%
-      mutate(locus=meta[metarow, 'locus'], .before=1)
+      mutate(rundate=meta[metarow,'rundate'], .before=1)
     # also add both to use as unique sample ID
     mutf <- mutf %>%
-      mutate(sample=paste(well, locus, sep='_'), .before=1)
+      mutate(sample=paste(rundate, well, locus, sep='_'), .before=1)
     
     ### return filtered mutations
     return(mutf)
