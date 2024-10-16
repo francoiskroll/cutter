@@ -14,10 +14,13 @@ classifyReads_one <- function(mut,
   ### check one giving data for one sample
   if(length(unique(mut$sample))>1)
     stop('\t \t \t \t >>> Error: attempting to give mutation data for more than one sample.\n')
-  # record sample, well, locus, sample's coverage
-  splnm <- unique(mut$sample)
-  wellnm <- unique(mut$well)
+  # record rundate, sid, locus, well, grp sample, sample's coverage
+  rundate <- unique(mut$rundate)
+  sid <- unique(mut$sid)
   locnm <- unique(mut$locus)
+  wellnm <- unique(mut$well)
+  grpnm <- unique(mut$grp)
+  splnm <- unique(mut$sample)
   
   # check only one sample's coverage
   splcov <- unique(mut$splcov)
@@ -91,12 +94,16 @@ classifyReads_one <- function(mut,
   rlabs <- rlabs %>%
     mutate(cat=rcats)
   
-  ### also add meta columns
+  ### add meta columns
+  # add from right to left in final columns
   rlabs <- rlabs %>%
+    mutate(grp=grpnm, .before=1) %>%
     mutate(well=wellnm, .before=1) %>%
     mutate(locus=locnm, .before=1) %>%
+    mutate(sid=sid, .before=1) %>%
+    mutate(rundate=rundate, .before=1) %>%
     mutate(sample=splnm, .before=1) %>%
-    mutate(splcov=splcov, .after='well')
+    mutate(splcov=splcov, .after='grp')
   
   return(rlabs)
   

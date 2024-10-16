@@ -6,9 +6,14 @@
 # francois@kroll.be
 #####################################################
 
+library(openxlsx)
+
 # loops through CRISPResso output folders
 
 # copath = folder that contains the CRISPResso results directories
+
+# v1
+# v2: expects columns rundate, well, locus to be in meta file, but will add any other column
 
 callMutations <- function(copath,
                           metapath,
@@ -20,11 +25,14 @@ callMutations <- function(copath,
                           controltb=NA,
                           callSubs=TRUE,
                           exportpath) {
-  ### check export path ends with .csv
-  frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
-  if(frmt!='csv')
-    stop('\t \t \t \t >>> exportpath should end with .csv.\n')
   
+  if(!is.na(exportpath)) {
+    ### check export path ends with .csv
+    frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
+    if(frmt!='csv')
+      stop('\t \t \t \t >>> exportpath should end with .csv.\n')
+  }
+
   ### import meta file
   # check file exists
   if(!file.exists(metapath))
@@ -35,7 +43,8 @@ callMutations <- function(copath,
     stop('\t \t \t \t >>> Expecting meta file to be .xlsx.\n')
   # import it
   meta <- read.xlsx(metapath)
-  # check it has columns rundate & well & locus
+  
+  # it has to have at least columns rundate & well & locus
   if(!'rundate' %in% colnames(meta))
     stop('\t \t \t \t >>> Error: expecting column "rundate" in meta file.\n')
   if(!'well' %in% colnames(meta))
@@ -57,8 +66,11 @@ callMutations <- function(copath,
     # path to Alleles_frequency_table.zip should be:
     alzip <- paste(dirs[di], 'Alleles_frequency_table.zip', sep='/')
     # check we found it
-    if(!file.exists(alzip))
-      stop('\t \t \t \t >>> Error: expecting Alleles_frequency_table.zip in folder', dirs[di], '.\n')
+    if(!file.exists(alzip)) {
+      cat('\t \t \t \t >>> Warning: no Alleles_frequency_table.zip in folder', dirs[di], '. Skipping this sample.\n')
+      return()
+    }
+      
     # unzip it in same folder
     unzip(alzip, exdir=  dirname(alzip))
     # check unzipped file exists
@@ -106,15 +118,33 @@ callMutations <- function(copath,
       stop('\t \t \t \t >>> Error: there is no row in meta file that has well ', wellnm, ' and locus ', locnm,'.\n')
     if(length(metarow)>1)
       stop('\t \t \t \t >>> Error: there are multiple rows in meta file that has well ', wellnm, ' and locus ', locnm,'. Please make well/locus unique.\n')
-    ## add meta information to mutation table
-    # TODO: here could be good to just add all meta columns?
+    
+    ## add minimal meta information to mutation table
+    # add from right to left
     mutf <- mutf %>%
-      mutate(locus=meta[metarow, 'locus'], .before=1) %>%
       mutate(well=meta[metarow,'well'], .before=1) %>%
+      mutate(locus=meta[metarow, 'locus'], .before=1) %>%
       mutate(rundate=meta[metarow,'rundate'], .before=1)
-    # also add both to use as unique sample ID
+    # also add rundate_well_locus to use as unique sample ID
+    # I think this should always be unique, even if pooling multiple runs
     mutf <- mutf %>%
       mutate(sample=paste(rundate, well, locus, sep='_'), .before=1)
+    
+    # now add other meta information found in meta file
+    # this allows it to be any number of other columns so free to add new ones for specific experiments
+    metacols <- colnames(meta)
+    # the extra meta columns are:
+    metacols <- metacols[which(!metacols %in% c('rundate', 'locus', 'well'))]
+    
+    # add extra columns
+    # cannot make mutate work within an sapply loop, despite help from ChatGPT
+    # but below works
+    for(colnm in metacols) {
+      mutf <- mutf %>%
+        mutate(tmp=meta[metarow, colnm], .before='well')
+      # now put the correct column name
+      colnames(mutf)[which(colnames(mutf)=='tmp')] <- colnm
+    }
     
     ### return filtered mutations
     return(mutf)
@@ -124,10 +154,15 @@ callMutations <- function(copath,
   # gather everything in one dataframe
   # we have locus & well to keep track of which mutation is from which sample
   mut <- do.call(rbind, mutL)
+  
   # save this dataframe
-  # prepare filename
-  write.csv(mut, exportpath, row.names=FALSE)
-  cat('\t \t \t \t >>> Wrote', exportpath, '\n')
+  if(!is.na(exportpath)) {
+    write.csv(mut, exportpath, row.names=FALSE)
+    cat('\t \t \t \t >>> Wrote', exportpath, '\n')
+  } else {
+    cat('\t \t \t \t >>> Export is off.')
+  }
+
   # we also return mut
   invisible(mut)
 }

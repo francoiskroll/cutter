@@ -70,23 +70,35 @@ sem <- function(x) sd(x)/sqrt(length(x))
 
 
 ggStack <- function(rlab,
+                    splitby='locus',
+                    onlyrundate='all',
                     onlylocus='all',
+                    onlygrp='all',
+                    onlycat='all',
+                    grporder=NA,
                     locusorder=NA,
                     catorder=c('reference', 'mutated', 'impure', 'pure'),
                     catcols=c('#aeb3b4', '#fcb505', '#a3bbdb', '#417dcd'),
                     mincov=NA,
+                    ymax=1.0,
+                    titleOrNo=TRUE,
                     xtextOrNo=TRUE,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
+                    xgrid=FALSE,
+                    ytitleSize=9,
+                    ytextSize=7,
                     exportOrNo=TRUE,
                     width=159.1,
                     height=82.03,
                     exportpath) {
   
   ### check exportpath is a pdf
-  frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
-  if(frmt!='pdf')
-    stop('\t \t \t \t >>> exportpath should end with .pdf.\n')
+  if(!is.na(exportpath)) {
+    frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
+    if(frmt!='pdf')
+      stop('\t \t \t \t >>> exportpath should end with .pdf.\n')
+  }
   
   ### import reads labels, if necessary
   if(is.character(rlab)) { # if string then assume we are being given the path
@@ -95,25 +107,40 @@ ggStack <- function(rlab,
   # if not a string, we are given the dataframe so we do not have to import it
   
   ### tally by sample and read category
+  # e.g. for sample A01, we count all reference reads
+  # force categories here, this (in combination with .drop=FALSE) will create e.g. pure edit for uninjected sample = 0
+  rlab$cat <- factor(rlab$cat, levels=c('reference', 'mutated', 'impure', 'pure'))
   rtal <- rlab %>%
-    group_by(sample, locus, well, splcov, cat) %>%
+    group_by(sample, cat, .drop=FALSE) %>%
     tally(name='nreads')
+  # then add back meta information
+  rmeta <- rlab %>%
+    distinct(sample, .keep_all=TRUE) %>%
+    select(sample, rundate, sid, locus, well, grp, splcov)
+  
+  rtal <- left_join(rmeta, rtal, by='sample')
   
   ### as check, separately, count total number of reads for each sample
   rtot <- rlab %>%
-    group_by(sample) %>%
+    group_by(sample, .drop=FALSE) %>%
     tally(name='ntot')
   # add the total to tally from above
   rtal <- right_join(rtal, rtot, by='sample')
   # check that splcov is always = ntot
   if(!identical(rtal$splcov, rtal$ntot))
     stop('\t \t \t \t >>> Sample\'s coverage calculated at the start is not equal to adding reads from the different categories.\n')
-  # can delete ntot
+  # can delete ntot now
   rtal$ntot <- NULL
   
   ### calculate proportions
   rtal <- rtal %>%
     mutate(catpro=nreads/splcov)
+  
+  ### keep only rundate we want to plot
+  if (onlyrundate[1] != 'all') {
+    rtal <- rtal %>%
+      filter(rundate %in% onlyrundate)
+  }
   
   ### keep only locus we want to plot
   if (onlylocus[1] != 'all') {
@@ -121,17 +148,32 @@ ggStack <- function(rlab,
       filter(locus %in% onlylocus)
   }
   
+  ### keep only grp we want to plot
+  if (onlygrp[1] != 'all') {
+    rtal <- rtal %>%
+      filter(grp %in% onlygrp)
+  }
+  
+  ### keep only categories we want to plot
+  if (onlycat[1] != 'all') {
+    rtal <- rtal %>%
+      filter(cat %in% onlycat)
+  }
+  
   ### filter low coverage samples
   if (!is.na(mincov)) {
     
-    # find their positions
-    lcis <- which(rtal$splcov < mincov) # low coverage indices
+    # keep only one row for each sample
+    rtalu <- distinct(rtal, sample, .keep_all=TRUE)
+    
+    # find positions of low coverage samples
+    lcis <- which(rtalu$splcov < mincov) # low coverage indices
     
     # tell user we are throwing them out
     if (length(lcis) != 0) { # are there any samples to throw?
-      for (i in 1:length(lcis)) {
-        cat('\t \t \t \t >>> Excluding sample', as.character(rtal[i, 'sample']),
-            'because its coverage is', as.numeric(rtal[i, 'splcov']), 'x.\n')
+      for (i in lcis) {
+        cat('\t \t \t \t >>> Excluding sample', as.character(rtalu[i, 'sample']),
+            'because its coverage is', as.numeric(rtalu[i, 'splcov']), 'x.\n')
       }
     }
     
@@ -140,10 +182,22 @@ ggStack <- function(rlab,
       filter(splcov >= mincov)
     
   }
+  # give minimum coverage to user
+  cat('\t \t \t \t >>> Minimum coverage is', rtal[which.min(rtal$splcov), 'splcov'], 'x',
+      'for sample', rtal[which.min(rtal$splcov), 'sample'], '\n')
+  
   
   ### control order of loci, if given by the user
   if(!is.na(locusorder[1])) {
     rtal$locus <- factor(rtal$locus, levels=locusorder)
+  }
+  
+  ### control order of groups, if given by the user
+  if(!is.na(grporder[1])) {
+    # keep only groups given by user, as if onlygrp was also given
+    rtal <- rtal %>%
+      filter(grp %in% grporder)
+    rtal$grp <- factor(rtal$grp, levels=grporder)
   }
   
   ### control order of type in plot
@@ -152,36 +206,46 @@ ggStack <- function(rlab,
   
   ### plot
   ggstack <- ggplot(data=rtal, aes (x=sample, y=catpro, fill=cat)) +
-    facet_grid(~locus, scales='free_x', space='free') + # space='free' lets subplots being different width,
-    # which results in bar width staying equal regardless of number of samples for each locus
+    
+    # split plot by...
+    {if(splitby=='rundate') facet_grid(~rundate, scales='free_x', space='free')} +
+    {if(splitby=='grp') facet_grid(~grp, scales='free_x', space='free')} +
+    {if(splitby=='locus') facet_grid(~locus, scales='free_x', space='free')} +
+    # space='free' lets subplots being different width,
+    # which results in bar width staying equal regardless of number of samples for each grouping
+    
     geom_col(width=0.8) +
     scale_fill_manual(drop=FALSE, values=catcols) +
     theme_minimal() +
     theme(
-      strip.text.x=element_blank(),
-      panel.grid.major.x=element_blank(),
+
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
-      axis.title.y=element_text(size=9, margin=margin(t=0, r=-1, b=0, l=0)),
+      axis.title.y=element_text(size=ytitleSize, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
-      axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0)),
+      axis.text.y=element_text(size=ytextSize, margin=margin(t=0, r=-1, b=0, l=0)),
       legend.position='none') +
-    coord_cartesian(ylim=c(0,1.0)) +
-    scale_y_continuous(breaks=c(0, 0.25, 0.5, 0.75, 1),
-                       labels=c(0, 25, 50, 75, 100)) +
+    coord_cartesian(ylim=c(0,ymax)) +
+    scale_y_continuous(breaks=seq(0.0, 1.0, 0.1),
+                       labels=seq(0, 100, 10)) +
     
     {if(ynameOrNo) ylab('% reads')} +
     {if(!ynameOrNo) ylab('')} +
     
     {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
-    {if(!ytextOrNo) theme(axis.text.y=element_blank())}
+    {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
+    {if(!titleOrNo) theme(strip.text.x=element_blank())} +
+    {if(!xgrid) theme(panel.grid.major.x=element_blank())}
   
   print(ggstack)
   
   
   ### export plot
-  if (exportOrNo) {
+  if (!is.na(exportpath)) {
+    cat('\t \t \t \t >>> Exporting to', exportpath, '.\n')
     ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm', device=cairo_pdf)
+  } else {
+    cat('\t \t \t \t >>> Export is off.\n')
   }
   
   

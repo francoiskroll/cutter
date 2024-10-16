@@ -11,9 +11,12 @@ classifyReads <- function(mut,
                           exportpath) {
   
   ### check export path ends with .csv
-  frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
-  if(frmt!='csv')
-    stop('\t \t \t \t >>> exportpath should end with .csv.\n')
+  if(!is.na(exportpath)) {
+    frmt <- substr(exportpath, start=nchar(exportpath)-2, stop=nchar(exportpath))
+    if(frmt!='csv')
+      stop('\t \t \t \t >>> exportpath should end with .csv.\n')
+  }
+
   
   ### import mut
   # if is a character, assume we are given a path,
@@ -42,7 +45,13 @@ classifyReads <- function(mut,
   # make sure it does not add row names
   row.names(rlab) <- NULL
   # export
-  write.csv(rlab, exportpath, row.names=FALSE)
+  if(!is.na(exportpath)) {
+    write.csv(rlab, exportpath, row.names=FALSE)
+    cat('\t \t \t \t >>> Wrote', exportpath, '\n')
+  } else {
+    cat('\t \t \t \t >>> Export is OFF.')
+  }
+
   # return
   invisible(rlab)
   

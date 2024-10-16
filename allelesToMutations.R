@@ -104,7 +104,8 @@ alleleToMutation <- function(ref,
   # so recordDel/Ins/Sub skips it
   # ! we will count the read as reference
   if(length(refdf)==0 & length(deldf)==0 & length(insdf)==0 & length(subdf)==0) {
-    cat('\t \t \t \t \t >>> Only a mutation at the edge of the read found, counting this read as reference.\n')
+    # cat('\t \t \t \t \t >>> Only a mutation at the edge of the read found, counting this read as reference.\n')
+    # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
     refdf <- c(type='ref',
                start=NA,
                stop=NA,
@@ -148,7 +149,8 @@ recordRef <- function(ref,
   alic <- paste0(ali, collapse='')
   
   if( identical(refc , alic) ) {
-    cat('\t \t \t \t >>> Detected reference allele.\n')
+    # cat('\t \t \t \t >>> Detected reference allele.\n')
+    # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
     return(c(type='ref',
              start=NA,
              stop=NA,
@@ -193,7 +195,8 @@ recordDel <- function(ref,
   # _i for index of each deletion start
   # ! indices of delpos, not sequence positions
   delpos_i <- c(1, (which(diff(delpos)!=1)+1))
-  cat('\t \t \t \t >>> Detected', length(delpos_i), 'deletion(s). \n')
+  # cat('\t \t \t \t >>> Detected', length(delpos_i), 'deletion(s). \n')
+  # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
 
   # now we split delpos in a list, where each element is a continuous sequence of positions
   # e.g. deletion1 is positions 1, 2, 3; deletion2 is positions 11, 12; deletion3 is position 22; etc.
@@ -213,7 +216,8 @@ recordDel <- function(ref,
     # we can tell if position #1 or position #`length of alignment` is in the deleted positions
     # in this case, we should not record this deletion
     if(1 %in% seqpos | length(ali) %in% seqpos) {
-      cat('\t \t \t \t >>> Deletion at the edge of the read, skipping record as it may be truncated. \n')
+      # cat('\t \t \t \t >>> Deletion at the edge of the read, skipping record as it may be truncated. \n')
+      # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
       return()
     }
     
@@ -283,7 +287,8 @@ recordIns <- function(ref,
   # _i for index of each insertion start
   # ! indices of inspos, not sequence positions
   inspos_i <- c(1, (which(diff(inspos)!=1)+1))
-  cat('\t \t \t \t >>> Detected', length(inspos_i), 'insertion(s). \n')
+  # cat('\t \t \t \t >>> Detected', length(inspos_i), 'insertion(s). \n')
+  # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
   
   # now we split inspos in a list, where each element is a continuous sequence of positions
   # e.g. insertion1 is positions 1, 2, 3; insertion2 is positions 11, 12; insertion3 is position 22; etc.
@@ -302,7 +307,8 @@ recordIns <- function(ref,
     # we can tell if position #1 or position #`length of alignment` is in the inserted positions
     # in this case, we should not record this insertion
     if(1 %in% seqpos | length(ref) %in% seqpos) {
-      cat('\t \t \t \t >>> Insertion at the edge of the read, skipping record as it may be truncated. \n')
+      # cat('\t \t \t \t >>> Insertion at the edge of the read, skipping record as it may be truncated. \n')
+      # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
       return()
     }
     
@@ -375,7 +381,8 @@ recordSub <- function(ref,
   # _i for index of each substitution start
   # ! indices of subpos, not sequence positions
   subpos_i <- c(1, (which(diff(subpos)!=1)+1))
-  cat('\t \t \t \t >>> Detected', length(subpos_i), 'substitution(s). \n')
+  # cat('\t \t \t \t >>> Detected', length(subpos_i), 'substitution(s). \n')
+  # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
   # now we split subpos in a list, where each element is a continuous sequence of positions
   # e.g. substitution1 is positions 1, 2, 3; substitution2 is positions 11, 12; substitution3 is position 22; etc.
   # _s for sequences of substitutions
@@ -392,7 +399,8 @@ recordSub <- function(ref,
     # we can tell if position #1 or position #`length of alignment` is in the inserted positions
     # in this case, we should not record this insertion
     if(1 %in% seqpos | length(ref) %in% seqpos) {
-      cat('\t \t \t \t >>> Substitution at the edge of the read, skipping record as it may be truncated. \n')
+      # cat('\t \t \t \t >>> Substitution at the edge of the read, skipping record as it may be truncated. \n')
+      # 18/09/2024; skipping some verbose, could make a total count for each sample, but for each read it too much
       return()
     }
     

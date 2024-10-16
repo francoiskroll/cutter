@@ -102,3 +102,5 @@ CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCT
 ### Notes to sort out
 
 Read with only a mutation at edge is counted as reference, see alleleToMutation.
+
+classifyReads, expedit = NA will never call edit (perhaps obvious), only two possible categories become reference and mutated.
