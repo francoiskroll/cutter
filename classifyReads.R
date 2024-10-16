@@ -6,8 +6,13 @@
 # francois@kroll.be
 #####################################################
 
+# v1
+# v2: with classifyReads_one_v2.R which includes scaffold detection
+
 classifyReads <- function(mut,
                           expedit,
+                          rhapos,
+                          scaffdetectwin=c(-2,+1),
                           exportpath) {
   
   ### check export path ends with .csv
@@ -32,12 +37,14 @@ classifyReads <- function(mut,
   ### split into mutations by sample
   # to get a list where each slot is one sample
   mutL <- split(mut, mut$sample)
-  # we run function classifyReads_one on each mutation table one by one
+  # then we pass each mutation table to classifyReads_one
   rlabL <- lapply(1:length(mutL), function(muti) {
     cat('\t \t \t \t >>> Sample', muti, 'out of', length(mutL), '\n')
     mut <- mutL[[muti]]
     return(classifyReads_one(mut=mut,
-                             expedit=expedit))
+                             expedit=expedit,
+                             rhapos=rhapos,
+                             scaffdetectwin=scaffdetectwin))
   })
   
   ### gather in one dataframe

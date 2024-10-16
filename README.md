@@ -104,3 +104,11 @@ CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCT
 Read with only a mutation at edge is counted as reference, see alleleToMutation.
 
 classifyReads, expedit = NA will never call edit (perhaps obvious), only two possible categories become reference and mutated.
+
+
+### version history
+
+* v1
+
+* v2
+Detection of scaffold incorporation, currently just looks at substitutions or insertions that starts with G around end of RTT (end of RHA). Can control detection with `rhapos` and `scaffdetectwin`.

@@ -14,6 +14,7 @@ library(openxlsx)
 
 # v1
 # v2: expects columns rundate, well, locus to be in meta file, but will add any other column
+# note, callMutations did not change when added scaffold detection
 
 callMutations <- function(copath,
                           metapath,

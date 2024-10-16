@@ -126,7 +126,12 @@ alleleToMutation <- function(ref,
   
   # add read IDs
   # which is original row.1, 2, 3, ...
-  mutdfm$rid <- sprintf('%i.%i', rowi, rep(1:nreads, each=nrow(mutdf)))
+  mutdfm$rid <- sprintf('r%i.%i', rowi, rep(1:nreads, each=nrow(mutdf)))
+  # 16/10/2024: originally was 1.1, 1.2, etc.
+  # but read.csv imports it as numeric, not character
+  # which then creates issues because e.g. 1.100 becomes 1.1, so then multiple 1.1 reads
+  # write.csv correctly puts "" around rid, the issue is from read.csv
+  # so only solution without every time thinking about it is to add a letter here
   
   return( mutdfm )
   

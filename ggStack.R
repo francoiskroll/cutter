@@ -6,6 +6,9 @@
 # francois@kroll.be
 #####################################################
 
+# v1
+# v2: with classifyReads_one_v2.R which includes scaffold detection
+
 # heavily based on function ggFrameshift created for previous projects
 
 # ggFrameshift(...)
@@ -77,8 +80,8 @@ ggStack <- function(rlab,
                     onlycat='all',
                     grporder=NA,
                     locusorder=NA,
-                    catorder=c('reference', 'mutated', 'impure', 'pure'),
-                    catcols=c('#aeb3b4', '#fcb505', '#a3bbdb', '#417dcd'),
+                    catorder=c('reference', 'scaffold', 'mutated', 'impure', 'pure'),
+                    catcols=c('#aeb3b4', '#982150', '#fcb505', '#a3bbdb', '#417dcd'),
                     mincov=NA,
                     ymax=1.0,
                     titleOrNo=TRUE,
@@ -109,7 +112,7 @@ ggStack <- function(rlab,
   ### tally by sample and read category
   # e.g. for sample A01, we count all reference reads
   # force categories here, this (in combination with .drop=FALSE) will create e.g. pure edit for uninjected sample = 0
-  rlab$cat <- factor(rlab$cat, levels=c('reference', 'mutated', 'impure', 'pure'))
+  rlab$cat <- factor(rlab$cat, levels=catorder)
   rtal <- rlab %>%
     group_by(sample, cat, .drop=FALSE) %>%
     tally(name='nreads')
