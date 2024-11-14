@@ -7,11 +7,21 @@
 #####################################################
 
 # v1
+
 # v2: with classifyReads_one_v2.R which includes scaffold detection
+
+# v3: added 'pestrand' argument ('forward' or 'reverse') to adjust scaffold detection.
+# in v2, would expect starting with G, which is only correct if PE is happening on Forward strand
+# see more notes in README.md
+
+# v4: can turn ON or OFF scaffold detection with argument scaffDetect
+# TODO (maybe): could list events to detect
 
 classifyReads <- function(mut,
                           expedit,
+                          scaffDetect=FALSE,
                           rhapos,
+                          pestrand='forward',
                           scaffdetectwin=c(-2,+1),
                           exportpath) {
   
@@ -21,7 +31,16 @@ classifyReads <- function(mut,
     if(frmt!='csv')
       stop('\t \t \t \t >>> exportpath should end with .csv.\n')
   }
-
+  
+  ### if scaffold detection is ON, check rhapos is given so we know where to look
+  if(scaffDetect) {
+    if(is.na(rhapos)) stop('\t \t \t \t >>> Error classifyReads: when scaffold detection is ON (scaffDetect=TRUE), need to give rhapos.\n')
+    # pestrand & scaffdetectwin have defaults so do not have to check
+  }
+  
+  ### check pestrand is forward or reverse
+  if(!pestrand %in% c('forward', 'reverse'))
+    stop('\t \t \t \t >>> Error classifyReads: pestrand can only be "forward" or "reverse".\n')
   
   ### import mut
   # if is a character, assume we are given a path,
@@ -43,7 +62,9 @@ classifyReads <- function(mut,
     mut <- mutL[[muti]]
     return(classifyReads_one(mut=mut,
                              expedit=expedit,
+                             scaffDetect=scaffDetect,
                              rhapos=rhapos,
+                             pestrand=pestrand,
                              scaffdetectwin=scaffdetectwin))
   })
   

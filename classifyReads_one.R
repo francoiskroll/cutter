@@ -9,7 +9,9 @@
 # expect mut, mutation table created by filterMutations
 
 # v1
+
 # v2: scaffold detection
+
 # scaffdetectWin: distance before/after end of RHA to detect scaffold
 # for now, detect scaffold just means insertion or deletion that starts with G
 # ! definitions of classes are slightly different:
@@ -19,9 +21,15 @@
 # scaffold = edit or not / mutation / scaffold
 # so scaffold class is agnostic to edit or not, i.e. whenever scaffold is detected that is the class the read gets
 
+# v3: correction of scaffold detection, taking into account PE strand
+
+# v4: scaffDetect argument, to turn ON or OFF scaffold detection
+
 classifyReads_one <- function(mut,
                               expedit,
+                              scaffDetect,
                               rhapos,
+                              pestrand,
                               scaffdetectwin=c(-2,+1)) {
   
   ### check one giving data for one sample
@@ -82,25 +90,40 @@ classifyReads_one <- function(mut,
     }
     
     ## detect scaffold incorporation
-    # current definition is insertion or substitution that starts within scaffdetectwin
-    # and altseq starts with G
-    # convert window given by user to absolute positions
-    # make sure both positions are positive
-    scaffdetectwin <- abs(scaffdetectwin)
-    scaffdetectpos <- (rhapos-scaffdetectwin[1]) : (rhapos+scaffdetectwin[2])
-    # e.g. if rhapos is 103 and scaffdetectwin is (-2, +1),
-    # will give 101, 102, 103, 104
-    # do not look at whether expedit is there or not
-    # but most of the time should be there if scaffold incorporation is present
-    scaff <- muti %>%
-      filter(start %in% scaffdetectpos) %>%
-      filter(type %in% c('sub', 'ins')) %>%
-      filter(startsWith(altseq, 'G'))
-    if(nrow(scaff)>0) {
-      rlab['scaffold'] <- TRUE
-      # if scaffold is present, mut flag is guaranteed to be TRUE
-      # check
-      if(!rlab['mut']) stop('\t \t \t \t Error classifyReads_one: detected scaffold but "mut" flag for this read is FALSE, which does not make sense.\n')
+    if(scaffDetect) {
+      # current definition is insertion or substitution that starts within scaffdetectwin
+      # and altseq starts with G
+      # convert window given by user to absolute positions
+      # make sure both positions are positive
+      scaffdetectwin <- abs(scaffdetectwin)
+      scaffdetectpos <- (rhapos-scaffdetectwin[1]) : (rhapos+scaffdetectwin[2])
+      # e.g. if rhapos is 103 and scaffdetectwin is (-2, +1),
+      # will give 101, 102, 103, 104
+      # do not look at whether expedit is there or not
+      # but most of the time should be there if scaffold incorporation is present
+      
+      ### notes in README
+      # PE on Forward: insertion or substitution, whose `start` is close to rhapos and *starts* with G
+      # PE on Reverse: insertion or substitution, whose `stop` is close to rhapos and *ends* with G
+      if(pestrand=='forward') {
+        scaff <- muti %>%
+          filter(start %in% scaffdetectpos) %>%
+          filter(type %in% c('sub', 'ins')) %>%
+          filter(startsWith(altseq, 'G'))
+        
+      } else if(pestrand=='reverse') {
+        scaff <- muti %>%
+          filter(stop %in% scaffdetectpos) %>% # *** here stop, not start
+          filter(type %in% c('sub', 'ins')) %>%
+          filter(endsWith(altseq, 'C')) # *** here endsWith, not startsWith
+      }
+      
+      if(nrow(scaff)>0) {
+        rlab['scaffold'] <- TRUE
+        # if scaffold is present, mut flag is guaranteed to be TRUE
+        # check
+        if(!rlab['mut']) stop('\t \t \t \t Error classifyReads_one: detected scaffold but "mut" flag for this read is FALSE, which does not make sense.\n')
+      }
     }
     
     ## return labels for this read

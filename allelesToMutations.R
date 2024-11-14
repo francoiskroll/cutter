@@ -7,6 +7,12 @@
 # francois@kroll.be
 #####################################################
 
+# v0
+
+# v1
+# records reference & mutated sequence aligned
+# this will make it easier to analyse repair
+
 
 # packages ----------------------------------------------------------------
 
@@ -111,14 +117,16 @@ alleleToMutation <- function(ref,
                stop=NA,
                bp=NA,
                refseq=NA,
-               altseq=NA)
+               altseq=NA,
+               ref=paste0(ref, collapse=''),
+               ali=paste0(ref, collapse=''))
   }
   
   ### pool & return
   # pool
   mutdf <- as.data.frame(rbind(refdf, deldf, insdf, subdf))
   # sometimes messes up the column names, add them back
-  colnames(mutdf) <- c('type', 'start', 'stop', 'bp', 'refseq', 'altseq')
+  colnames(mutdf) <- c('type', 'start', 'stop', 'bp', 'refseq', 'altseq', 'ref', 'ali')
   # delete any row names
   row.names(mutdf) <- NULL
   # if more than one read like this, multiply the rows
@@ -161,7 +169,9 @@ recordRef <- function(ref,
              stop=NA,
              bp=NA,
              refseq=NA,
-             altseq=NA))
+             altseq=NA,
+             ref=refc,
+             ali=alic))
   }
   # else, do nothing
 }
@@ -246,7 +256,9 @@ recordDel <- function(ref,
              stop=stop,
              bp=length(seqpos),
              refseq=refseq,
-             altseq=NA))
+             altseq=NA,
+             ref=paste0(ref, collapse=''), # return reference & aligned sequence, pasted back together
+             ali=paste0(ali, collapse='')))
   })
   # note, altseq is undetermined as the deleted sequence is not present anymore
   
@@ -337,7 +349,9 @@ recordIns <- function(ref,
              stop=stop,
              bp=length(seqpos),
              refseq=NA,
-             altseq=altseq))
+             altseq=altseq,
+             ref=paste0(ref, collapse=''), # return reference & aligned sequence, pasted back together
+             ali=paste0(ali, collapse='')))
   })
   # note, refseq is undetermined as the inserted sequence was not present in the reference
   
@@ -431,7 +445,9 @@ recordSub <- function(ref,
              stop=stop,
              bp=length(seqpos),
              refseq=refseq,
-             altseq=altseq))
+             altseq=altseq,
+             ref=paste0(ref, collapse=''), # return reference & aligned sequence, pasted back together
+             ali=paste0(ali, collapse='')))
   })
   
   subdf <- data.frame(do.call(rbind, subrs))

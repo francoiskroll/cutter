@@ -12,8 +12,10 @@ library(openxlsx)
 
 # copath = folder that contains the CRISPResso results directories
 
+# v0
+
 # v1
-# v2: expects columns rundate, well, locus to be in meta file, but will add any other column
+# expects columns rundate, well, locus to be in meta file, but will add any other column
 # note, callMutations did not change when added scaffold detection
 
 callMutations <- function(copath,
@@ -73,7 +75,7 @@ callMutations <- function(copath,
     }
       
     # unzip it in same folder
-    unzip(alzip, exdir=  dirname(alzip))
+    unzip(alzip, exdir=dirname(alzip))
     # check unzipped file exists
     # should be same as zip, but with .txt
     altxt <- paste0(substr(alzip, start=1, stop=nchar(alzip)-3), 'txt')

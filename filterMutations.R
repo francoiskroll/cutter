@@ -6,6 +6,11 @@
 # francois@kroll.be
 #####################################################
 
+# v0
+
+# v1
+# changes to make it work with new version where we record every reference & aligned sequences
+
 
 # source & packages -------------------------------------------------------
 
@@ -340,6 +345,8 @@ filterMutations <- function(muttb,
                           bp=NA,
                           refseq=NA,
                           altseq=NA,
+                          ref=NA,
+                          ali=NA,
                           rid=filtids,
                           splcov=splcov)
     # adding those reference reads to the reference reads we already kept aside above

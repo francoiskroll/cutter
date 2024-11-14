@@ -7,3 +7,6 @@ exampleRef.fa.ann
 exampleRef.fa.bwt
 exampleRef.fa.pac
 exampleRef.fa.sa
+mutcallsTest.csv
+testScript.R
+archives
