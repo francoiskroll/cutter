@@ -201,8 +201,9 @@ There are two, not mutually exclusive, exceptions to the typical case represente
 
 * v1
 
-* v2
+* v2  
 Detection of scaffold incorporation, currently just looks at substitutions or insertions that starts with G around end of RTT (end of RHA). Can control detection with `rhapos` and `scaffdetectwin`.
 
 * v3  
-Detection of microhomology for deletions, see `detectMHdel`.
+    * Detection of microhomology for deletions, see `detectMHdel`.  
+    * `callMutations` now records every reference & aligned sequence from CRISPResso2 alleles table.
