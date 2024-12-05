@@ -212,7 +212,7 @@ Detects whether insertions were templated from sequences flanking the cut.
 
 Runs on complete mutation table and writes extra columns. For all the rows which have `type` as `ref` or `sub` or `del`, the extra columns are `NA`. The extra columns can only contain data if the `type` is `ins`. In practice, `detectTemplatedIns` runs on complete alignments (pairs of one aligned reference & one read, columns `ref` and `ali`), not just on the detected insertion.
 
-![alt text](readme_figs/detectTemplatedIns.pdf)
+![cartoon detection of templated insertions](readme_figs/detectTemplatedIns.png)
 
 explain newly synthesised sequence etc.
 
