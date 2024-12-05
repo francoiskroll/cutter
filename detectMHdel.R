@@ -30,25 +30,24 @@ detectMHdel <- function(mut,
                         minMHlen=2,
                         cutpos) {
   
-  # ! in mut, mutation positions (start & stop) refer to overall reference sequence
+  # ! in mut, mutation positions (start & stop) refer to original reference sequence
   # *not* to reference seauence aligned (column ref)
   # distinction is important because in the case of an insertion, ref gets additional "-"
   # to keep positions always referring to the same reference, we have a function "fixPos" in allelesToMutations to correct for this
-  # but this means that in functions below we should always work with the overall reference, not the reference listed in that row of mut
+  # but this means that in functions below we should always work with the original reference, not the reference listed in that row of mut
   # so that user does not have to give manually the reference sequence, we can recover it here ourselves
-  # only case where reference is not actually the overall reference sequence is if it has any "-"
-  # get all the 'true' overall reference sequences:
-  ovrefs <- mut[!grepl('-', mut$ref, fixed=TRUE), 'ref'] # "overall references"
+  # only case where reference is not actually the original reference sequence is if it has any "-"
+  # get all the 'true' original reference sequences:
+  orefs <- mut[!grepl('-', mut$ref, fixed=TRUE), 'ref'] # "overall references"
   # check they are all the same, after we removed NA
-  ovrefs <- ovrefs[!is.na(ovrefs)]
-  if(length(unique(ovrefs))!=1)
+  orefs <- orefs[!is.na(orefs)]
+  if(length(unique(orefs))!=1)
     stop('\t \t \t \t >>> Error detectMHdel: issue when computing overall reference sequence.\n')
   # we have our overall reference sequence
-  ovref <- unique(ovrefs)
+  oref <- unique(orefs)
   
   ### loop through every row of mut
   # if type is ref or sub or ins, return all NA
-  # (eventually, want to do MH analysis on insertions too)
   # if type is del, run MH detection
   delmhL <- lapply(1:nrow(mut), function(rowi) {
     
@@ -67,18 +66,18 @@ detectMHdel <- function(mut,
                rightFlapSeq=NA,
                rightFlapbp=NA))
     }
-    # rest is 'else', which is = del
+    # rest is 'else' (because did not 'return' yet), which is = del
     
     # if not returned, it means we have a deletion
     ### run MH detection
     delrow <- mut[rowi,]
     
     detectedMH <- detectMHdel_one(delrow=delrow,
-                                  ovref=ovref,
+                                  oref=oref,
                                   minMHlen=minMHlen)
     
     return( recordMH(delrow=delrow,
-                     ovref=ovref,
+                     oref=oref,
                      cutpos=cutpos,
                      detectedMH=detectedMH) )
     
@@ -117,7 +116,7 @@ detectMHdel <- function(mut,
 # cutpos: nucleotide before the cut
 
 recordMH <- function(delrow,
-                     ovref,
+                     oref,
                      cutpos,
                      detectedMH) {
   
@@ -162,7 +161,7 @@ recordMH <- function(delrow,
     leftMHstop <- delrow$start - 1
   }
   # check that it is correct
-  if(substr(ovref, leftMHstart, leftMHstop) != MHseq)
+  if(substr(oref, leftMHstart, leftMHstop) != MHseq)
     stop('\t \t \t \t >>> Error: positions leftMHstart to leftMHstop in ref do not give the MH sequence.\n')
 
   ### start & stop positions of rightMH
@@ -176,7 +175,7 @@ recordMH <- function(delrow,
     rightMHstop <- delrow$stop
   }
   # check that it is correct
-  if(substr(ovref, rightMHstart, rightMHstop) != MHseq)
+  if(substr(oref, rightMHstart, rightMHstop) != MHseq)
     stop('\t \t \t \t >>> Error: positions rightMHstart to rightMHstop in ref do not give the MH sequence.\n')
   
   ### "inner" sequence
@@ -220,9 +219,12 @@ recordMH <- function(delrow,
   ## case #2 ##
   # if leftMH stops *after* cut
   # or if rightMH starts *before* cut
-  } else if( (leftMHstop>cutpos) | (rightMHstart<cutpos) ) {
+  # both are including =, same position still means MH stops after cut or starts before cut
+  # e.g. (real example) ...agta*tggGGG; MH is atg but cut is here *
+  # this gives cutpos = 4 (should select the nucleotide just before) & rightMHstart as 4 (selects the a of atg)
+  } else if( (leftMHstop>=cutpos) | (rightMHstart<=cutpos) ) {
     # we can record innerSeq as normal (cf. `else` below)
-    innerSeq <- substr(ovref, leftMHstop+1, rightMHstart-1)
+    innerSeq <- substr(oref, leftMHstop+1, rightMHstart-1)
     innerbp <- nchar(innerSeq)
     
     # but we record flaps as NA, as we do not know where the cut occurred
@@ -236,14 +238,14 @@ recordMH <- function(delrow,
     # this is sequence between the two MH
     # we now calculated all the positions,
     # so we can just take from leftMHstop + 1 up to rightMHstart - 1
-    innerSeq <- substr(ovref, leftMHstop+1, rightMHstart-1)
+    innerSeq <- substr(oref, leftMHstop+1, rightMHstart-1)
     
     ### length of "inner" sequence
     innerbp <- nchar(innerSeq)
     
     ### sequence between leftMH and cut
     # I think safest is to get the actual sequence and count the number of nt
-    leftFlapSeq <- substr(ovref, leftMHstop+1, cutpos)
+    leftFlapSeq <- substr(oref, leftMHstop+1, cutpos)
     # cutpos should be precisely the nucleotide before the cut
     # check sequence makes sense, should be first few nucleotides of innerSeq
     if (!identical( leftFlapSeq , substr(innerSeq, 1, nchar(leftFlapSeq)) ))
@@ -253,7 +255,7 @@ recordMH <- function(delrow,
     leftFlapbp <- nchar(leftFlapSeq)
     
     ### sequence between cut and rightMH
-    rightFlapSeq <- substr(ovref, cutpos+1, rightMHstart-1)
+    rightFlapSeq <- substr(oref, cutpos+1, rightMHstart-1)
     # check sequence makes sense, should be last few nucleotides of innerSeq
     if (!identical( rightFlapSeq , substr(innerSeq, nchar(innerSeq)-nchar(rightFlapSeq)+1, nchar(innerSeq)) ))
       stop('\t \t \t \t >>> rightFlapSeq does not give last n nucleotides of innerSeq.\n')
@@ -293,7 +295,7 @@ recordMH <- function(delrow,
 # remember, I think this is always (?) an arbitrary decision by the alignment algorithm, but could be interesting to tell whether it has a preference or not
 # MHseq: sequence of the detected MH
 detectMHdel_one <- function(delrow,
-                            ovref,
+                            oref,
                             minMHlen) {
   
   ### try left MH
@@ -307,7 +309,7 @@ detectMHdel_one <- function(delrow,
   while(fail==0) {
     # leftMHnext is testing +1 longer MH
     leftMHnext <- tryLeftMH(delrow=delrow,
-                            ovref=ovref,
+                            oref=oref,
                             nMH=nMH)
     
     # if NA, we failed
@@ -332,7 +334,7 @@ detectMHdel_one <- function(delrow,
   fail <- 0
   while(fail==0) {
     rightMHnext <- tryRightMH(delrow=delrow,
-                              ovref=ovref,
+                              oref=oref,
                               nMH=nMH)
     
     # if NA, we failed
@@ -396,7 +398,7 @@ detectMHdel_one <- function(delrow,
 # tryLeftMH ---------------------------------------------------------------
 
 tryLeftMH <- function(delrow,
-                      ovref,
+                      oref,
                       nMH) {
   
   # ! microhomology length (nMH) cannot be longer than the deletion, does not make sense
@@ -418,7 +420,7 @@ tryLeftMH <- function(delrow,
   # in the reference sequence, we know already that at these positions are the same nucleotides
   # i.e. the "tryMH" sequence
   # can check this
-  if( ! identical( substr(ovref, startposSame, stopposSame) , tryMH ) )
+  if( ! identical( substr(oref, startposSame, stopposSame) , tryMH ) )
     stop('\t \t \t \t >>> Error tryLeftMH: in the reference sequence, expected to find the same sequence as the deleted sequence, but that was not the case.\n')
   
   # check at the opposite side of this tryMH, just after the deletion (i.e. not in the deleted sequence)
@@ -431,7 +433,7 @@ tryLeftMH <- function(delrow,
   
   # if this sequence is the same as tryMH, this is evidence of MMEJ
   # we record leftMH as this sequence
-  if( substr(ovref, startposOppo, stopposOppo) == tryMH) {
+  if( substr(oref, startposOppo, stopposOppo) == tryMH) {
     leftMH <- tryMH
   }
   
@@ -443,7 +445,7 @@ tryLeftMH <- function(delrow,
 # tryRightMH --------------------------------------------------------------
 
 tryRightMH <- function(delrow,
-                       ovref,
+                       oref,
                        nMH) {
   
   # ! microhomology length (nMH) cannot be longer than the deletion, does not make sense
@@ -467,7 +469,7 @@ tryRightMH <- function(delrow,
   # in the reference sequence, we know already that at these positions are the same nucleotides
   # i.e. the "tryMH" sequence
   # can check this
-  if( ! identical( substr(ovref, startposSame, stopposSame) , tryMH ) )
+  if( ! identical( substr(oref, startposSame, stopposSame) , tryMH ) )
     stop('\t \t \t \t >>> Error tryRightMH: in the reference sequence, expected to find the same sequence as the deleted sequence, but that was not the case.\n')
   
   # check at the opposite side of this tryMH, just before the deletion (i.e. not in the deleted sequence)
@@ -481,7 +483,7 @@ tryRightMH <- function(delrow,
   
   # if this sequence is the same as tryMH, this is evidence of MMEJ
   # we record rightMH as this sequence
-  if( substr(ovref, startposOppo, stopposOppo) == tryMH) {
+  if( substr(oref, startposOppo, stopposOppo) == tryMH) {
     rightMH <- tryMH
   }
   

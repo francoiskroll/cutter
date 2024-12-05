@@ -105,6 +105,15 @@ Read with only a mutation at edge is counted as reference, see alleleToMutation.
 
 classifyReads, expedit = NA will never call edit (perhaps obvious), only two possible categories become reference and mutated.
 
+Start position of insertion is first inserted nucleotide minus 1, i.e. last aligned nucleotide. Start position of deletion is first deleted nucleotide.
+
+About insertion: this makes it possible to have two mutations at the same position. For example, a 1-bp substitution directly followed by an insertion would give same position for the substitution and the start of the insertion. e.g.
+```
+TCGTCA-TGGGGCC
+TCGTCTGTGGGGCC
+```
+Will give substitution A>T at position #6 and insertion G at position #6.
+
 
 ### about scaffold detection
 v2: read class "scaffold" trumps all others, i.e. agnostic to edit or other mutations, if scaffold is there, it will be label read as "scaffold".
@@ -151,13 +160,13 @@ Columns it adds to mutation table:
 
 * `MHbp` length of the MH in bp.
 
-* `leftMHstart` start position of the left MH.
+* `leftMHstart` start position (position of first nucleotide) of the left MH.
 
-* `leftMHstop` stop position of the left MH.
+* `leftMHstop` stop position (position of last nucleotide) of the left MH.
 
-* `rightMHstart` start position of the right MH.
+* `rightMHstart` start position (position of first nucleotide) of the right MH.
 
-* `rightMHstop` stop position of the right MH.
+* `rightMHstop` stop position (position of last nucleotide) of the right MH.
 
 * `innerSeq` inner sequence. This is the sequence flanked by the two MHs (cf. schematic above).
 
@@ -197,6 +206,84 @@ There are two, not mutually exclusive, exceptions to the typical case represente
 
 `detectMHdel` tries both left MH and right MH for each deletion. For each side, it looks for the longest MH, starting with `minMHlen`. The maximum MH size is set as the length of the deletion. If the deletion has MH on both sides (I think this is extremely rare), it compares both and keeps the longest one. If both are the same size (I do not know if this would ever happen), it will all record the left one.
 
+### detectTemplatedIns
+
+Detects whether insertions were templated from sequences flanking the cut.
+
+Runs on complete mutation table and writes extra columns. For all the rows which have `type` as `ref` or `sub` or `del`, the extra columns are `NA`. The extra columns can only contain data if the `type` is `ins`. In practice, `detectTemplatedIns` runs on complete alignments (pairs of one aligned reference & one read, columns `ref` and `ali`), not just on the detected insertion.
+
+![alt text](readme_figs/detectTemplatedIns.pdf)
+
+explain newly synthesised sequence etc.
+
+We talk here of templated _insertions_ but XXX.
+
+* `mut` mutation table, created by `callMutations`.
+
+* `cutpos` position of cut site in reference sequence used for alignment (first nucleotide is #1). This position should point to exactly the nucleotide before the cut. For example, for reference sequence (PAM in uppercase) `attctagactNGGcattca`, we expect `cutpos=7` (position of `g`).
+
+* `cutdist` if the mutation we are studying is quite far from the cut, it is unconvincing that it is related to the Cas9 break. `cutdist` controls this "quite far" threshold. Precisely, we take all modified nucleotides (positions of the alignment where the two sequences do not match, could be e.g. `C:G`; or `-:A`; or `A:-`), and look at the modified nucleotide that is the closest to the cut. If this nucleotide is further from the cut than `cutdist` (i.e. the mutation is "quite far" from the cut), we conclude that the mutation is not related to the Cas9 break and do not analyse its origin further***.
+
+* `minLCSbp` to detect templated insertion, we compare the newly synthesised sequence to the region around the cut and extract the longest common substring (sequence). We should not conclude that we detected a templated insertion when it is just a small sub-sequence matching as this could be a coincidence. `minLCSbp` controls the minimum length of the common sub-sequence. Below this length, we conclude that the match (the common sub-sequence) is not long enough to be convincing. Rather, it could just be a coincidence so do not return the detection***. Above this length, we conclude that the match (the common sub-sequence) is long enough to be convincing and we return the detection.
+A more jargony definition of `minLCSbp`: minimum length of (in bp) of the longest common substring (sequence) between the "newly synthesised sequence" and the "search window".  
+Default is 5 bp (`minLCSbp=5`).  
+Note, deciding on `minLCSbp` should take into account setting `extendNewlySeq`. For example, if we extend the newly synthesised sequence by 3 bp on either side, we are guaranteed to always find a common sub-sequence of at least 3 bp, as the edges of the newly synthesised sequence will always match the reference. In other words, `minLCSbp` should always be greater than `extendNewlySeq`. For example, if `extendNewlySeq=3`, `minLCSbp=5` may still return false positives as the probability of a 5-bp common substring is only the probability that the 4th and 5th nucleotide match the reference (we know for sure that the first three will match), i.e. around 1/4 * 1/4 = 6%.
+
+* `allowStretchMatches` to extract the "newly synthesised sequence", we start with the modified nucleotide (mismatch between the aligned reference & read) that is closest to the cut (which I call "seed") and extend it as long as possible in either direction (leftward and rightward). If the "newly synthesised sequence" was genuinely templated from a sequence around the cut, we do not expect it to match the reference. However, we do not expect no match _at all_. After all, even nucleotides taken as random will match 25% of the time. Therefore, we expect the "newly synthesised sequence" to mostly not match the reference (insertions or substitutions), interspaced by some "lucky matches". `allowStretchMatches` controls the maximum length of a stretch of "lucky matches" we allow when extracting the newly synthesised sequence. In practice, we try to extend the newly synthesised sequence 1 bp at a time, first leftward then rightward. At each new bp, we ask "in the next 5 bp, are there any mismatches?". If yes, we take this new bp as part of the newly synthesised sequence and go to the next one. If no, we stop trying to extend the newly synthesised sequence further in this direction, as the next few ("few" being `allowStretchMatches`) match so it looks like we reached the end of the newly synthesised sequence. Default is 5 bp (`allowStretchMatches=5`).  
+The dilemma when choosing `allowStretchMatches` is: if it is too long, we risk taking in the newly synthesised sequence nucleotides which were not actually templated from the regions flanking the cut (e.g. a sequencing error that just happens to be close); if it is too short, we risk extracting a newly synthesised sequence that is too short because we were too stringent and stopped as soon as there were a few "lucky matches".
+
+* `extendNewlySeq` the broad logic when extracting the newly synthesised sequence is to get the sequence of the aligned read from the first (leftmost) to the last (rightmost) mismatch. However, in a similar logic as for `allowStretchMatches`, this may be slightly too stringent as there will often be "lucky matches" (two nucleotides picked at random will match 25% of the time). The solution here is to extend slightly the newly synthesised sequence in both directions by `extendNewlySeq` bp. For example, when `extendNewlySeq=3`, the newly synthesised sequence is guaranteed to look like:  
+`mmmx...xmmm`  
+where m is a match and x is a mismatch. Default is 3 bp (`extendNewlySeq=3`).
+
+* `searchWindowStarts` when searching for the template in the reference sequence, how far from the cut are we allowed to look? Of course we could take the entire reference as "search window", but this risks finding red herrings (sequences far from the cut are unlikely to be taken as template during repair), so `searchWindowStarts` allows to limit the size of the search window. Precisely, `searchWindowStarts` is: of all the nucleotides that may have served as template for the newly synthesised sequence, how far from the cut do we allow the closest one to the cut to be. In practice, we define the search window in the reference sequence as: `... ^ ...`, where `^` is the cut position and each `...` is of length `searchWindowStarts + length of newly synthesised sequence`. As can be seen, we take into account the length of the newly synthesised sequence, so you should not try to take it into account when deciding on `searchWindowStarts`, just decide how far can _any nucleotide of the template_ be from the cut. Default is 20 bp (`searchWindowStarts=20`).  
+For example, if `searchWindowStarts=20` and the newly synthesised sequence we are analysing is of length 13 bp, then the search window in the reference sequence will be:  
+`~43bp~ ^ ~43bp~`, i.e. a window of 86 bp centered on the cut position.
+
+Columns it adds to mutation table:
+
+* `lcbp` length (in bp) of the longest common substring (sequence) between the newly synthesised sequence and the search window. This is guaranteed to be longer or equal to `minLCSbp`.
+
+* `lcseq` sequence of this longest common substring (sequence).
+
+* `lcdir` direction of the match. `fw` means that `lcseq` matches a part of the search window read from left to right; `rv` means that `lcseq` matches a part of the search window read from right to left (i.e. `lcseq` has to be reversed to make it match the search window).
+
+* `lcStart` position, in original reference sequence, of the start of the longest common substring (sequence), i.e. (roughly) start of the template.
+
+* `lcStop` position, in original reference sequence, of the end of the longest common substring (sequence), i.e. (roughly) end of the template.
+
+In the original reference sequence, the sequence from `lcStart` to `lcStop` is guaranteed to give `lcseq` (when reading from right to left if `lcdir` is `rv`).
+
+In the mutation table, every row that has mutation `type` `ref` or `sub` or `del` will get new columns:
+```
+lcbp = NA
+lcseq = NA
+lcdir = NA
+lcStart = NA
+lcStop = NA
+```
+
+***But, if thresholds `cutdist` or `minLCSbp` are not met, we return:
+```
+lcbp = 0
+lcseq = NA
+lcdir = NA
+lcStart = NA
+lcStop = NA
+```
+
+`lcbp` as NA or 0 allows to differentiate the two cases. If `lcbp` is NA, we did not run the detection of templated insertions. If `lcbp` is 0, we ran the detection of the templated insertions but the result was not convincing (`cutdist`: the mutation was too far from the cut; or `minLCSbp`: the best common substring was not long enough).
+
+When looking for the longest common substring between the newly synthesised sequence and the search window, `detectTemplatedIns` tests both directions of the search window (_not_ the reverse-complement, simply the search window read from left to right or read from right to left). I have seen examples where a reverse match (i.e. a big chunk of the newly synthesised sequence seems to come from the reference read from right to left).
+
+*could insert example here*
+
+Currently, `detectTemplatedIns` only returns _the_ longest common substring (sequence). In practice, the newly synthesised sequence is often a patchwork of sequences from multiple origins, but we do not currently attempt to locate all the origins (templates).
+
+There can be multiple substrings that are equally good (long). For example, `detectTemplatedIns` may find two substrings which are both 8 bp. If the two substrings are in opposite directions, it will preferentially return the _forward_ match (i.e. the newly synthesised sequence matching the search window read left-to-right). If the two substrings are in the same direction, it is arbirary which one is returned.
+
+
+
 ### version history
 
 * v1
@@ -207,3 +294,6 @@ Detection of scaffold incorporation, currently just looks at substitutions or in
 * v3  
     * Detection of microhomology for deletions, see `detectMHdel`.  
     * `callMutations` now records every reference & aligned sequence from CRISPResso2 alleles table.
+
+* v4  
+Detection of insertions templated from sequences flanking the cut (`detectTemplatedIns`).
