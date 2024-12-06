@@ -210,12 +210,13 @@ There are two, not mutually exclusive, exceptions to the typical case represente
 
 Detects whether insertions were templated from sequences flanking the cut.
 
+We talk here of "templated insertions" but an insertion is frequently followed or preceded by substitutions. This is not a coincidence but rather reflects the DNA synthesis that occured during repair (typically TMEJ). Therefore, the insertion is better analysed by taking the entire "newly synthesised sequence" into account, not just the inserted sequence.
+
 Runs on complete mutation table and writes extra columns. For all the rows which have `type` as `ref` or `sub` or `del`, the extra columns are `NA`. The extra columns can only contain data if the `type` is `ins`. In practice, `detectTemplatedIns` runs on complete alignments (pairs of one aligned reference & one read, columns `ref` and `ali`), not just on the detected insertion.
 
-Here are a couple of examples to help understand how the detection works (LCS stands for Longest Common Substring/sequence).
+Here are a couple of examples to help understand how the detection works (LCS stands for Longest Common Substring/sequence). Refer to those cartoons when reading below.
 
 Example of a forward match:
-
 ![fig detection of templated insertions](readme_figs/detectTemplatedIns.png)
 
 Example of reverse match:
@@ -226,8 +227,6 @@ In both cases;
 ![fig newly synthesised sequence](readme_figs/newlyseq.png)
 * the "search window" is defined like so:
 ![fig newly synthesised sequence](readme_figs/searchwin.png)
-
-We talk here of templated _insertions_ but XXX.
 
 * `mut` mutation table, created by `callMutations`.
 
@@ -274,7 +273,7 @@ lcStart = NA
 lcStop = NA
 ```
 
-***But, if thresholds `cutdist` or `minLCSbp` are not met, we return:
+*** If thresholds `cutdist` or `minLCSbp` are not met, we return:
 ```
 lcbp = 0
 lcseq = NA
@@ -285,9 +284,7 @@ lcStop = NA
 
 `lcbp` as NA or 0 allows to differentiate the two cases. If `lcbp` is NA, we did not run the detection of templated insertions. If `lcbp` is 0, we ran the detection of the templated insertions but the result was not convincing (`cutdist`: the mutation was too far from the cut; or `minLCSbp`: the best common substring was not long enough).
 
-When looking for the longest common substring between the newly synthesised sequence and the search window, `detectTemplatedIns` tests both directions of the search window (_not_ the reverse-complement, simply the search window read from left to right or read from right to left). I have seen examples where a reverse match (i.e. a big chunk of the newly synthesised sequence seems to come from the reference read from right to left).
-
-*could insert example here*
+When looking for the longest common substring between the newly synthesised sequence and the search window, `detectTemplatedIns` tests both directions of the search window (_not_ the reverse-complement, simply the search window read from left to right or read from right to left). I have seen examples where a reverse match (i.e. a big chunk of the newly synthesised sequence seems to come from the reference read from right to left, see cartoon "Example of reverse match" above).
 
 Currently, `detectTemplatedIns` only returns _the_ longest common substring (sequence). In practice, the newly synthesised sequence is often a patchwork of sequences from multiple origins, but we do not currently attempt to locate all the origins (templates).
 
