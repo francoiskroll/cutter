@@ -212,9 +212,20 @@ Detects whether insertions were templated from sequences flanking the cut.
 
 Runs on complete mutation table and writes extra columns. For all the rows which have `type` as `ref` or `sub` or `del`, the extra columns are `NA`. The extra columns can only contain data if the `type` is `ins`. In practice, `detectTemplatedIns` runs on complete alignments (pairs of one aligned reference & one read, columns `ref` and `ali`), not just on the detected insertion.
 
-![cartoon detection of templated insertions](readme_figs/detectTemplatedIns.png)
+Here are a couple of examples to help understand how the detection works (LCS stands for Longest Common Substring/sequence).
 
-explain newly synthesised sequence etc.
+Example of a forward match:
+
+![fig detection of templated insertions](readme_figs/detectTemplatedIns.png)
+
+Example of reverse match:
+![fig detection of templated insertions - reverse](readme_figs/detectTemplatedInsRv.png)
+
+In both cases;
+* the "newly synthesised sequence" is defined like so:
+![fig newly synthesised sequence](readme_figs/newlyseq.png)
+* the "search window" is defined like so:
+![fig newly synthesised sequence](readme_figs/searchwin.png)
 
 We talk here of templated _insertions_ but XXX.
 

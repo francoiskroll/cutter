@@ -195,11 +195,15 @@ tmp[tmp$type %in% c('ref', 'sub', 'del'),
 
 # make cartoon, some checks -----------------------------------------------
 
-mut <- read.csv('~/Dropbox/miseqUtils/mutcallsTest.csv')
+mut <- read.csv('~/Dropbox/cutter/mutcallsTest.csv')
 
-oref <- gsub('-', '', mut$ref[9890])
+# find example reverse match
+# top 1 insertion at slc45a2, see studyRepair.ai
+# found one #7127
 
-detectTemplatedIns_one(alrow=mut[9890,],
+oref <- gsub('-', '', mut$ref[7127])
+
+detectTemplatedIns_one(alrow=mut[7127,],
                        oref=oref,
                        cutpos=87,
                        cutdist=12,
