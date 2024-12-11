@@ -1,4 +1,4 @@
-# **"cutter" – the CRISPR mutations caller 
+# "cutter" – the CRISPR mutations caller 
 
 Main script is **alignFilterBack.command**, which aligns MiSeq fastq reads to a fasta reference (uses `bwa mem`), then optionally filters the resulting BAM file and converts it back to fastq files; one R1 containing Forward reads, one R2 containing Reverse reads. To know which fasta reference to use for each pair of fastq files, it reads a config.xlsx file with two columns: _well_ & _ref_.
 
@@ -206,6 +206,89 @@ There are two, not mutually exclusive, exceptions to the typical case represente
 
 `detectMHdel` tries both left MH and right MH for each deletion. For each side, it looks for the longest MH, starting with `minMHlen`. The maximum MH size is set as the length of the deletion. If the deletion has MH on both sides (I think this is extremely rare), it compares both and keeps the longest one. If both are the same size (I do not know if this would ever happen), it will all record the left one.
 
+### simulateDel
+
+Simulates deletions and add them to the mutation table as one simulated sample. `detectMHdel` can then be run on the entire mutation table, including the simulated sample. The goal is to provide a baseline for MH deletions expected from random, as a kind of null hypothesis (see comment about this below).
+
+* `mut` minimum length allowed for the MH, in bp. Default is 2 bp.
+
+* `nreads` number of reads to simulate, which is also number of rows added to the mutation table.
+
+* `mincov` setting for internal function `fitDelLengths` which fits the deletion lengths using a log-normal distribution. Minimum coverage (number of reads) of one sample to use it when fitting. Goal is to exclude samples with low coverage because we cannot be confident in the the deletion frequencies (e.g. 1 read with a 11-bp deletion in a sample with 4 reads probably does not mean that the frequency of this 11-bp deletion is 25%). Default is 100 (`mincov=100`).
+
+* `cutpos` position of cut site in reference sequence used for alignment (first nucleotide is #1). This position should point to exactly the nucleotide before the cut. For example, for reference sequence (PAM in uppercase) `attctagactNGGcattca`, we expect `cutpos=7` (position of `g`).
+
+* `cutDelbp` generally, deletions must remove the 'cutpos' nucleotide, but we relax this requirement for very short deletions. Setting controls this length threshold, it is the minimum size of a deletion that must delete the 'cutpos' nucleotide. Default is 3 bp (`cutDelbp=3`), meaning any deletion that is 3 bp or longer must delete the 'cutpos' nucleotide. For shorter deletion, see below.
+
+* `awayfromCut` if the deletion is very short (shorter than `cutDelbp` bp), how far from the cut do we allow it to be. Default is 4 bp (`awayfromCut=4`).
+
+    Example: deletion size is 2 bp (which is below `cutDelbp`) and `awayfromCut` is 4 bp, then in the following sequence (PAM is GGG, `cutpos` nucleotide is C, actual cut is at ^):
+    ```
+    aggtcgtC^atgGGGccg
+    ```
+
+    We consider the following deletions: 
+    ```
+    agg--gtC^atgGGGccg  
+    aggt--tC^atgGGGccg  
+    aggtc--C^atgGGGccg  
+    aggtcg--^atgGGGccg  
+    aggtcgt-^-tgGGGccg  
+    aggtcgtC^--gGGGccg  
+    aggtcgtC^a--GGGccg  
+    aggtcgtC^at--GGccg  
+    aggtcgtC^atg--Gccg
+    ```
+
+    TODO should make a figure? Perhaps would be clearer.
+
+    Because all these deletions remove a nucleotide that is at most within 4 bp (`awayfromCut`) from the cut.
+
+`simulateDel` adds rows to mutation table as:
+
+* `sample` is "999999_Z99_simulated"
+* `rundate` is "999999"
+* `locus` is "simulated"
+* `well` is "Z99"
+* any other column present in mutation table (typically those added from meta file) is filled with NA.
+
+Small comment on MH deletions expected from random: assuming only MH of 1 bp, and taking as example a 3-bp deletion like so:
+```
+... 1 2 3 4 5 6 7 ...
+... N N N N N N N ...
+... N N - - - N N ...
+```
+Then a MH deletion with MH 1 bp is detected if nucleotide #3 matches nucleotide #6 (`MHside` left, i.e. left MH is deleted) _OR_ nucleotide #2 matches nucleotide #5 (`MHside` right, i.e. right MH is deleted), that is:
+```
+P(3=6) | P(2=5)
+```
+which is
+```
+P(3=6) + P(2=5)
+```
+
+Probability that two nucleotides picked as random match is
+```
+P(both A) + P(both C) + P(both G) + P(both T)  
+```
+where e.g.
+```
+P(both A) = P(first is A) * P(second is A) = 1/4 * 1/4 = 1/16
+```
+So probability that two random nucleotides match is:
+```
+1/16 + 1/16 + 1/16 + 1/16 = 4/16 = 1/4
+```
+
+So 
+```
+P(3=6) + P(2=5) = 1/4 + 1/4 = 2/4 = 50%
+```
+
+On top of this, there is a (much smaller) probability of a random 2-bp MH, etc.
+
+Having said this, this is all assuming a completely random sequence. In practice, the probability will vary based on the sequence (e.g. a sequence which is all `...GGGGGG...` will give a MH detection 100% of the time); this is why we generate random deletions at the locus, rather than assume random probabilities.
+
 ### detectTemplatedIns
 
 Detects whether insertions were templated from sequences flanking the cut.
@@ -305,3 +388,6 @@ Detection of scaffold incorporation, currently just looks at substitutions or in
 
 * v4  
 Detection of insertions templated from sequences flanking the cut (`detectTemplatedIns`).
+
+* v5  
+New function `simulateDel` to simulate reads with deletions to provide a "null hypothesis" baseline for `detectMHdel`.
