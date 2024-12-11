@@ -169,7 +169,7 @@ recordMH <- function(delrow,
   # if MHside (which MH was deleted) is right, then we want last few positions of deletion
   if(MHside=='left') {
     rightMHstart <- delrow$stop + 1
-    rightMHstop <- delrow$stop + MHbp - 1
+    rightMHstop <- delrow$stop + MHbp
   } else if(MHside=='right') {
     rightMHstart <- delrow$stop - MHbp + 1
     rightMHstop <- delrow$stop
