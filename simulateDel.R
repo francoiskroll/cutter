@@ -24,14 +24,15 @@ simulateDel <- function(mut,
                         awayfromCut=4) {
   
   ### fit distribution of deletion lengths with a log-normal function
-  logparams <- fitDelLengths(mut,
+  logparams <- fitDelLengths(mut=mut,
                              mincov=mincov)
   
   ### now simulate `nreads` with each a deletion
   # step below is surprisingly slow...
   simdelL <- lapply(1:nreads, function(i) {
     cat('\t \t \t \t simulating read', i, 'of', nreads, '\n')
-    simulateDel_one(logparams=logparams,
+    simulateDel_one(mut=mut,
+                    logparams=logparams,
                     cutpos=cutpos,
                     cutDelbp=3,
                     awayfromCut=4)
@@ -101,9 +102,9 @@ simulateDel <- function(mut,
     stop('\t \t \t \t >>> Error simulateDel: all columns of mut are not in simdel, or vice-versa.\n')
   
   # now put the columns of simdel in the same order
-  simdel <- simdel[, match(colnames(simdel), colnames(mut)) ]
+  simdel <- simdel[, colnames(mut) ]
   # check correct
-  if(!identical(colnames(simdel), colnames(mut)))
+  if(!identical(colnames(mut), colnames(simdel)))
     stop('\t \t \t \t >>> Error simulateDel: columns of simdel are not in the same order as columns of mut.\n')
   
   # can now rbind
@@ -117,7 +118,8 @@ simulateDel <- function(mut,
 
 # simulateDel_one ---------------------------------------------------------
 
-simulateDel_one <- function(logparams,
+simulateDel_one <- function(mut,
+                            logparams,
                             cutpos,
                             cutDelbp,
                             awayfromCut) {
@@ -231,14 +233,6 @@ simulateDel_one <- function(logparams,
     alisp <- refsp
     alisp[delpos] <- '-'
     # the reference sequence stays the same
-    
-    print('ref')
-    print(refsp)
-    
-    print('ali')
-    print(alisp)
-    
-    print(delpos)
     
     # check they are the same size just to be safe
     if(length(refsp)!=length(alisp))
