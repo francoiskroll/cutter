@@ -18,6 +18,10 @@ library(openxlsx)
 # expects columns rundate, well, locus to be in meta file, but will add any other column
 # note, callMutations did not change when added scaffold detection
 
+# v2: reads cutpos, cutdist, rhapos, rhadist from meta file.
+# This allows them to vary between samples, in case they are not the same amplicon or pegRNA.
+# it also writes these settings in the `mut` table.
+
 callMutations <- function(copath,
                           metapath,
                           minnreads=NA,
@@ -82,22 +86,7 @@ callMutations <- function(copath,
     if(!file.exists(altxt))
       stop('\t \t \t \t >>> Error: after unzipping, expecting Alleles_frequency_table.txt in folder', dirs[di], '.\n')
     
-    ### convert alleles table to mutation table
-    cat('\t \t \t \t >>> Calling mutations from', altxt,'\n')
-    muttb <- allelesToMutations(alpath=altxt)
-    
-    ### filter the detected mutations
-    cat('\t \t \t \t >>> Filtering mutation calls.\n')
-    mutf <- filterMutations(muttb=muttb,
-                            minnreads=minnreads,
-                            cutpos=cutpos,
-                            cutdist=cutdist,
-                            rhapos=rhapos,
-                            rhadist=rhadist,
-                            controltb=controltb,
-                            callSubs=callSubs)
-    
-    ### add column well & column locus
+    ### find the corresponding row in meta file
     # from meta,
     # unique well names are:
     wells <- unique(meta$well)
@@ -107,7 +96,7 @@ callMutations <- function(copath,
     ## try to find well name
     # assumption: well name is in the folder name between some _
     dirsplit <- unlist(strsplit(basename(dirs[di]), '_'))
-    wellnm <- dirsplit[which(dirsplit %in% wells)][1] # we take first occurence of that looks like well name
+    wellnm <- dirsplit[which(dirsplit %in% wells)][1] # we take first occurence that looks like well name
     if(length(wellnm)==0)
       stop('\t \t \t \t >>> Error: did not find well name in directory name', dirs[di], '\n')
     ## try to find locus name
@@ -122,7 +111,33 @@ callMutations <- function(copath,
     if(length(metarow)>1)
       stop('\t \t \t \t >>> Error: there are multiple rows in meta file that has well ', wellnm, ' and locus ', locnm,'. Please make well/locus unique.\n')
     
+    # we know have the corresponding row (index) in meta file
+    # can run allelesToMutations & filterMutations
+    # filterMutations will take parameters from the meta row
+    
+    ### convert alleles table to mutation table
+    cat('\t \t \t \t >>> Calling mutations from', altxt,'\n')
+    muttb <- allelesToMutations(alpath=altxt)
+    
+    ### filter the detected mutations
+    cat('\t \t \t \t >>> Filtering mutation calls.\n')
+    
+    cat('\t \t \t \t', 'cutpos:', meta[metarow, 'cutpos'], '\n')
+    cat('\t \t \t \t', 'cutdist:', meta[metarow, 'cutdist'], '\n')
+    cat('\t \t \t \t', 'rhapos:', meta[metarow, 'rhapos'], '\n')
+    cat('\t \t \t \t', 'rhadist:', meta[metarow, 'rhadist'], '\n')
+    
+    mutf <- filterMutations(muttb=muttb,
+                            minnreads=minnreads,
+                            cutpos=meta[metarow, 'cutpos'],
+                            cutdist=meta[metarow, 'cutdist'],
+                            rhapos=meta[metarow, 'rhapos'],
+                            rhadist=meta[metarow, 'rhadist'],
+                            controltb=controltb,
+                            callSubs=callSubs)
+    
     ## add minimal meta information to mutation table
+    # at least well, locus, rundate
     # add from right to left
     mutf <- mutf %>%
       mutate(well=meta[metarow,'well'], .before=1) %>%
