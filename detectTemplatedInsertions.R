@@ -123,7 +123,7 @@ detectTemplatedIns <- function(mut,
   # then we can join by matching ref & ali
   # this will automatically copy all the new columns when alignment is the same
   mutins <- mutunins %>%
-    select(ref, ali, lcbp, lcseq, lcdir, lcStart, lcStop) %>%
+    dplyr::select(ref, ali, lcbp, lcseq, lcdir, lcStart, lcStop) %>%
     left_join(x=mut, y=., by=c('ref', 'ali'))
   
   # one alignment will often have multiple rows, as each row is a mutation
