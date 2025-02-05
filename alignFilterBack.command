@@ -128,14 +128,17 @@ do
     second=$(echo "$reads" | head -n 2 | tail -n 1)
     # keep only filename
     firstnm=$(basename "$first")
-    # if first file has R1 in its name
-    if [[ "$firstnm" == *"R1"* ]]; then
+    # if first file has _R1 or _1 in its name
+    if [[ "$firstnm" == *"_R1"* || "$firstnm" == *"_1"* ]]; then
     fwd="$first"
     rvs="$second"
     else
     rvs="$first"
     fwd="$second"
     fi
+
+    echo "Forward reads = $fwd"
+    echo "Reverse reads = $rvs"
 
     ### find fasta reference in the folder given by user
     refp=$(find "$refpath" -type f -name "$ref") # reference path
