@@ -13,7 +13,7 @@
 # v2: scaffold detection
 
 # scaffdetectWin: distance before/after end of RHA to detect scaffold
-# for now, detect scaffold just means insertion or deletion that starts with G
+# for now, detect scaffold just means insertion or substitution that starts with G
 # ! definitions of classes are slightly different:
 # pure = edit / no mutation / no scaffold
 # impure = edit / mutation / no scaffold
@@ -26,15 +26,19 @@
 # v4: scaffDetect argument, to turn ON or OFF scaffold detection
 
 classifyReads_one <- function(mut,
-                              expedit,
+                              #expedit,
                               scaffDetect,
-                              rhapos,
-                              pestrand,
+                              #rhapos,
+                              #pestrand,
                               scaffdetectwin=c(-2,+1)) {
   
-  ### check one giving data for one sample
+  ### check mut is giving data for just one sample
   if(length(unique(mut$sample))>1)
     stop('\t \t \t \t >>> Error: attempting to give mutation data for more than one sample.\n')
+  
+  # scaffDetect: we checked in classifyReads that columns rhapos & pestrand look correct
+  # we also turned expedit to NA if column "expedit" was not present
+  
   # record rundate, sid, locus, well, grp sample, sample's coverage
   rundate <- unique(mut$rundate)
   sid <- unique(mut$sid)
@@ -42,6 +46,18 @@ classifyReads_one <- function(mut,
   wellnm <- unique(mut$well)
   grpnm <- unique(mut$grp)
   splnm <- unique(mut$sample)
+  # also record rhapos & pestrand (if scaffDetect is ON)
+  if(scaffDetect) {
+    rhapos <- unique(mut$rhapos)
+    pestrand <- unique(mut$pestrand)
+  }
+  # for expedit, record it if present or turn to NA if not
+  if('expedit' %in% colnames(mut)) {
+    expedit <- unique(mut$expedit)
+  } else {
+    cat('\t \t \t \t >>> classifyReads: column "expedit" not in mut, will assume that there is no expected edit to detect.\n')
+    expedit <- NAs
+  }
   
   # check only one sample's coverage
   splcov <- unique(mut$splcov)
