@@ -26,9 +26,10 @@
 # overarching function for detection of microhomologies in deletions
 # runs detectMHdel_one for each unique deletion in mut (written by callMutations)
 
+# 17/03/2025, deleted cutpos as argument, should take it from mut table
+
 detectMHdel <- function(mut,
-                        minMHlen=2,
-                        cutpos) {
+                        minMHlen=2) {
   
   # ! in mut, mutation positions (start & stop) refer to original reference sequence
   # *not* to reference seauence aligned (column ref)
@@ -71,6 +72,9 @@ detectMHdel <- function(mut,
     # if not returned, it means we have a deletion
     ### run MH detection
     delrow <- mut[rowi,]
+    
+    # get the cutpos from that row
+    cutpos <- as.integer(delrow[,'cutpos'])
     
     detectedMH <- detectMHdel_one(delrow=delrow,
                                   oref=oref,
