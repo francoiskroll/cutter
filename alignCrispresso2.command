@@ -1,8 +1,15 @@
 #!/bin/bash
 
 # 31/01/2025
+# v0
 # was making a new script for each new amplicon
-# this script alignCrispresso2.command will
+# this script alignCrispresso2.command will find amplicon reference sequence based on filename
+
+# v1
+# just looking for well (e.g. A01) creates an issue if one well is present twice (so as four files) because aligned to different amplicons
+# solution is to look for well_amplicon, e.g. A01_cacng2b
+# TODO: line readscount=$(echo "$READS" | wc -l) will return 1 when no match, which is not ideal. Should return 0. See https://stackoverflow.com/questions/78051930/why-wc-l-result-is-1-for-empty-variable.
+# 
 
 shopt -s nullglob
 
@@ -58,15 +65,27 @@ do
   # e.g. A01_xxx
   WELL="$(echo "$i" | cut -d'_' -f 1)"
 
-  ### in the folder, find files that start with WELL
+  ### get the amplicon name
+  # will assume filename looks like well_amplicon_R1/R2.fastq
+  # where 'amplicon' could also have underscores
+  # so remove anything before first underscore and anything after last underscore
+  # > remove everything before the first underscore
+  AMP="${FILE#*_}"
+  # > remove everything after the last underscore
+  AMP="${AMP%_*}"
+
+  ### together WELL_AMP, e.g. A01_cacng2b, tells us the fastq files to search for
+  WAM="$(echo "$WELL"$"_""$AMP")" # WAM for WELL_AMPLICON
+
+  ### in the folder, find files that start with WAM
   fastqpath=$(dirname "$FILE")
-  READS=$(find "$fastqpath" -type f -name "$WELL*")
+  READS=$(find "$fastqpath" -type f -name "$WAM*")
 
   # check that exactly two fastq files were found
   readscount=$(echo "$READS" | wc -l)
 
   if [ "$readscount" -ne 2 ]; then
-    echo "Error: there should be exactly TWO fastq files starting with '$WELL', but found $readscount."
+    echo "Error: there should be exactly TWO fastq files starting with '$WAM', but found $readscount."
     exit 1
   fi
 
@@ -90,15 +109,8 @@ do
 
 
   ### find the fasta reference
-  # get the amplicon name
-  # will assume filename looks like well_amplicon_R1/R2.fastq
-  # where 'amplicon' could also have underscores
-  # so remove anything before first underscore and anything after last underscore
-  # > remove everything before the first underscore
-  AMP="${FILE#*_}"
-  # > remove everything after the last underscore
-  AMP="${AMP%_*}"
-  # add .fa to the name
+
+  # add .fa to the amplicon name pepared above
   REF="$(echo "$AMP"$".fa")"
 
   echo "Reference should be $REF"
