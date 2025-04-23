@@ -94,6 +94,11 @@ simulateDel <- function(mut,
     colnames(simdel)[which(colnames(simdel)=='tmp')] <- colnm
   }
   
+  ### if cutpos column is present, fill it with actual info given by user
+  if('cutpos' %in% colnames(simdel)) {
+    simdel$cutpos <- cutpos
+  }
+  
   ### add simulated reads to mut
   # first put the columns of simdel in the same order as in mut
   

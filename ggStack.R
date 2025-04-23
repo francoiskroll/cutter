@@ -89,6 +89,7 @@ ggStack <- function(rlab,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
                     xgrid=FALSE,
+                    titleSize=9,
                     ytitleSize=9,
                     ytextSize=7,
                     exportOrNo=TRUE,
@@ -185,10 +186,13 @@ ggStack <- function(rlab,
       filter(splcov >= mincov)
     
   }
+  
+  # pause: it is possible we excluded every sample!
+  if(nrow(rtal)==0) stop('\t \t \t \t >>> STOP: no more reads left to count after excluding low-coverage samples.\n')
+  
   # give minimum coverage to user
   cat('\t \t \t \t >>> Minimum coverage is', rtal[which.min(rtal$splcov), 'splcov'], 'x',
       'for sample', rtal[which.min(rtal$splcov), 'sample'], '\n')
-  
   
   ### control order of loci, if given by the user
   if(!is.na(locusorder[1])) {
@@ -227,6 +231,7 @@ ggStack <- function(rlab,
       axis.title.y=element_text(size=ytitleSize, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y=element_text(size=ytextSize, margin=margin(t=0, r=-1, b=0, l=0)),
+      strip.text.x=element_text(size=titleSize),
       legend.position='none') +
     coord_cartesian(ylim=c(0,ymax)) +
     scale_y_continuous(breaks=seq(0.0, 1.0, 0.1),
@@ -246,7 +251,7 @@ ggStack <- function(rlab,
   ### export plot
   if (!is.na(exportpath)) {
     cat('\t \t \t \t >>> Exporting to', exportpath, '.\n')
-    ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm', device=cairo_pdf)
+    ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm')
   } else {
     cat('\t \t \t \t >>> Export is off.\n')
   }
