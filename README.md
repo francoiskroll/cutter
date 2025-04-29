@@ -148,6 +148,34 @@ TODO: need to check again scaffdetectwin. Probably did not take this into accoun
 TODO: for filtering, did I take this into account? Looking at all positions between start and stop should be OK.
 TODO: I am not sure about decision to add filtered-out reads as reference reads. Probably they should just be thrown out? i.e. they will be removed from mutated reads & total reads. Currently, by switching their labels to "ref", we removing them from mutated reads, but keeping them in total reads. ! those "manually edited to ref" reads will have ref & ali sequence as NA. While sequences directly called as ref before filterMutations (including those which were called as ref because the mutation was at the edge) have the actual ref & ali sequences.
 
+### classifyReads
+
+Assigns categories to individual reads. Every read is assigned to one and only one category.
+
+There are two modes: precise and frameshift.
+
+Mode `precise` is when a precise edit is expected, for example in the case of homology-directed repair, base editing, or prime editing. It will assign to each read one of the following labels:
+* `reference` if the read is reference (no mutation around the PAM).
+* `scaffold` (optional) if the read contains evidence of scaffold incorporation. This is most relevant in the case of prime editing.
+* `mutated` [TODO should be replaced by 'indel'] if the edit is absent and the read contains one or more indels. The edit could be absent either because the region is reference or because the region was deleted.
+* `impure` if the edit is present but the read also contains one or more indels (also substitutions?).
+* `pure` if the edit is present and no other mutations are present.
+
+Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will assign to each read one of the following labels:
+* `reference` if the read is reference (no mutation around the PAM).
+* `indel_inframe` if the read has one or more indels but their summed length is a multiple of three (e.g. the read has a deletion of 5 bp and an insertion of 2 bp: –5 + 2 = –3 bp).
+* `indel_frameshift` if the read has one or more indels and their summed length is not a multiple of three (e.g. the read has a deletion of 5 bp).
+
+* `mut` mutation table, created by `callMutations`.
+
+* `mode` either `precise` or `frameshift`, see above. Default is `precise`.
+
+* `scaffDetect` whether (`TRUE`) or not (`FALSE`) to detect scaffold incorporations. Default is not to detect scaffold incorporations (`scaffDetect=FALSE`).
+
+* `scaffdetectwin` window for detection of scaffold incorporations. Default is `scaffdetectwin=c(-2,1)`. [TODO more details]
+
+* `exportpath` path to .csv file to create, e.g. `exportpath='~/myexperiment/mutcalls.csv'`
+
 ### simulateDel
 
 Simulates deletions and add them to the mutation table as one simulated sample. `detectMHdel` can then be run on the entire mutation table, including the simulated sample. The goal is to provide a baseline for MH deletions expected from random, as a kind of null hypothesis (see comment about this below).
