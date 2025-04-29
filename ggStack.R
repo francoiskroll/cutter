@@ -88,6 +88,7 @@ ggStack <- function(rlab,
                     xtextOrNo=TRUE,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
+                    legendOrNo=TRUE,
                     xgrid=FALSE,
                     titleSize=9,
                     ytitleSize=9,
@@ -117,10 +118,12 @@ ggStack <- function(rlab,
   rtal <- rlab %>%
     group_by(sample, cat, .drop=FALSE) %>%
     tally(name='nreads')
+  
+  print( unique(rtal$cat) )
   # then add back meta information
   rmeta <- rlab %>%
     distinct(sample, .keep_all=TRUE) %>%
-    select(sample, rundate, sid, locus, well, grp, splcov)
+    dplyr::select(sample, rundate, sid, locus, well, grp, splcov)
   
   rtal <- left_join(rmeta, rtal, by='sample')
   
@@ -188,7 +191,11 @@ ggStack <- function(rlab,
   }
   
   # pause: it is possible we excluded every sample!
-  if(nrow(rtal)==0) stop('\t \t \t \t >>> STOP: no more reads left to count after excluding low-coverage samples.\n')
+  # in this case, warn the user and returns nothing
+  if(nrow(rtal)==0) {
+    cat('\t \t \t \t >>> STOP: no more reads left to count after excluding low-coverage samples. Stopping execution. \n')
+    return()
+  }
   
   # give minimum coverage to user
   cat('\t \t \t \t >>> Minimum coverage is', rtal[which.min(rtal$splcov), 'splcov'], 'x',
@@ -231,8 +238,8 @@ ggStack <- function(rlab,
       axis.title.y=element_text(size=ytitleSize, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y=element_text(size=ytextSize, margin=margin(t=0, r=-1, b=0, l=0)),
-      strip.text.x=element_text(size=titleSize),
-      legend.position='none') +
+      strip.text.x=element_text(size=titleSize)
+      ) +
     coord_cartesian(ylim=c(0,ymax)) +
     scale_y_continuous(breaks=seq(0.0, 1.0, 0.1),
                        labels=seq(0, 100, 10)) +
@@ -243,7 +250,8 @@ ggStack <- function(rlab,
     {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
     {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
     {if(!titleOrNo) theme(strip.text.x=element_blank())} +
-    {if(!xgrid) theme(panel.grid.major.x=element_blank())}
+    {if(!xgrid) theme(panel.grid.major.x=element_blank())} +
+    {if(!legendOrNo) theme(legend.position='none')}
   
   print(ggstack)
   

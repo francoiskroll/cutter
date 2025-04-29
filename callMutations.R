@@ -101,7 +101,7 @@ callMutations <- function(copath,
       stop('\t \t \t \t >>> Error: did not find well name in directory name', dirs[di], '\n')
     ## try to find locus name
     locnm <- dirsplit[which(dirsplit %in% loci)][1] # we take first occurence of that looks like locus name
-    if(length(locnm)==0)
+    if(length(locnm)==0 | is.na(locnm))
       stop('\t \t \t \t >>> Error: did not find locus name in directory name', dirs[di], '\n')
     ## check that it makes sense in comparison with meta
     # i.e. that this well coordinate has this locus
@@ -111,7 +111,7 @@ callMutations <- function(copath,
     if(length(metarow)>1)
       stop('\t \t \t \t >>> Error: there are multiple rows in meta file that has well ', wellnm, ' and locus ', locnm,'. Please make well/locus unique.\n')
     
-    # we know have the corresponding row (index) in meta file
+    # we now have the corresponding row (index) in meta file
     # can run allelesToMutations & filterMutations
     # filterMutations will take parameters from the meta row
     

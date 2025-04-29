@@ -18,6 +18,7 @@ library(tidyr)
 ggMHdel <- function(mut,
                     min_del_nreads=50, # arbitrary
                     colourLight='#f1b9c7',
+                    grporder=NA,
                     legendOrNo=TRUE,
                     titleOrNo=TRUE,
                     xtextOrNo=TRUE,
@@ -77,6 +78,11 @@ ggMHdel <- function(mut,
   # add colour for 0
   catcols <- c('#5a6974', catcols)
   
+  # set the order of the groups (plot's facet)
+  if(!is.na(grporder[1])) {
+    mhtal$grp <- factor(mhtal$grp, levels=grporder)
+  }
+  
   #catcols <- c('#5a6974', '#c54867', '#db5072', '#e2738e', '#e996aa', '#f1b9c7')
 
   ggMhbp <- ggplot(mhtal, aes(x=sample, y=catpro, fill=MHbp)) +
@@ -85,7 +91,6 @@ ggMHdel <- function(mut,
     scale_fill_manual(drop=FALSE, values=catcols) +
     theme_minimal() +
     theme(
-      strip.text=element_blank(),
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
       # axis.title.y=element_text(size=9, margin=margin(t=0, r=-1, b=0, l=0)),

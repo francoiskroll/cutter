@@ -98,6 +98,9 @@ CRISPResso2 command is:
 CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq GTACAGTCTGGTGTGGCTCATAAGCCCCATTTTGGGTTTTATCCTACAGCCCGTCATCGGCTCGGCGAGCGACTACTGTAGGTCGTCATAAGGCCGAAGGAGACCGTACATACTCTTACTGGGGATTCTGATGTTAGTGGGCATGACTTTATTTCTAAATGGAGATGCAGTCACAACAGGTGGGTGA --amplicon_name slc45a2TAA --prime_editing_pegRNA_spacer_seq gactactgtaggtcgtcata --prime_editing_pegRNA_extension_seq tctccttcggccccatgacgacctacagt --prime_editing_pegRNA_scaffold_seq gttttagagctagaaatagcaagttaaaataaggctagtccgttatcaacttgaaaaagtgggaccgagtcggtcc
 ```
 
+### about locus name in config.xlsx and meta.xlsx file
+
+Do not use `_` or `.` in the locus names. If you have multiple loci for the same gene you can use `-` to differentiate them, such as: `msh2-1`, `msh2-2`, etc.
 
 ### miscellaneous notes
 
@@ -306,6 +309,8 @@ Plots a stacked barplot showing, for each sample, proportions of reads with dele
 * `min_del_nreads` minimum number of reads with deletion a sample should have to be included in the plot. Default is 50 (`min_del_nreads=50`).
 
 * `colourLight` colour for the shortest microhomology (typically 1 bp). This should be the lightest colour, colours for longer microhomologies will be darker versions of this one.
+
+* `grporder` order of the groups, i.e. order of the subplots (facets). `NA` will follow alphabetical order. For example, `grporder=c('Cas9', 'PE2')`.
 
 * `legendOrNo` whether (`TRUE`) or not (`FALSE`) to write the legend. Default is `TRUE`.
 

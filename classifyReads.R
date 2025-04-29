@@ -20,9 +20,8 @@
 # v5: takes rhapos from meta file
 
 classifyReads <- function(mut,
-                          expedit,
+                          mode='precise',
                           scaffDetect=FALSE,
-                          pestrand='forward',
                           scaffdetectwin=c(-2,+1),
                           exportpath) {
   
@@ -33,17 +32,19 @@ classifyReads <- function(mut,
       stop('\t \t \t \t >>> exportpath should end with .csv.\n')
   }
   
-  ### if scaffold detection is ON,
-  # check rhapos is given in the mut table so we know where to look
-  # check pestrand is giving in the mut table
-  if(scaffDetect) {
-    ## check rhapos
-    if(! 'rhapos' %in% colnames(mut) ) stop('\t \t \t \t >>> Error classifyReads: scaffold detection is ON (scaffDetect=TRUE) but column "rhapos" is not in mut table so do not know where to look.\n')
-    if(!all(is.integer(mut$rhapos))) stop('\t \t \t \t >>> Error classifyReads: some values in column "rhapos" are not integers.\n')
-    
-    ## check pestrand
-    if(! 'pestrand' %in% colnames(mut) ) stop('\t \t \t \t >>> Error classifyReads: scaffold detection is ON (scaffDetect=TRUE) but column "pestrand" is not in mut table. Make sure it is given in the meta.xlsx file when running callMutations.\n')
-    if(! all(mut$pestrand %in% c('forward', 'reverse'))) stop('\t \t \t \t >>> Error classifyReads: in column "pestrand", only acceptable values are "forward" and "reverse".\n')
+  if(mode=='precise') {
+    ### if scaffold detection is ON,
+    # check rhapos is given in the mut table so we know where to look
+    # check pestrand is giving in the mut table
+    if(scaffDetect) {
+      ## check rhapos
+      if(! 'rhapos' %in% colnames(mut) ) stop('\t \t \t \t >>> Error classifyReads: scaffold detection is ON (scaffDetect=TRUE) but column "rhapos" is not in mut table so do not know where to look.\n')
+      if(!all(is.integer(mut$rhapos))) stop('\t \t \t \t >>> Error classifyReads: some values in column "rhapos" are not integers.\n')
+      
+      ## check pestrand
+      if(! 'pestrand' %in% colnames(mut) ) stop('\t \t \t \t >>> Error classifyReads: scaffold detection is ON (scaffDetect=TRUE) but column "pestrand" is not in mut table. Make sure it is given in the meta.xlsx file when running callMutations.\n')
+      if(! all(mut$pestrand %in% c('forward', 'reverse'))) stop('\t \t \t \t >>> Error classifyReads: in column "pestrand", only acceptable values are "forward" and "reverse".\n')
+    }
   }
   
   ### import mut
@@ -64,12 +65,14 @@ classifyReads <- function(mut,
   rlabL <- lapply(1:length(mutL), function(muti) {
     cat('\t \t \t \t >>> Sample', muti, 'out of', length(mutL), '\n')
     mut <- mutL[[muti]]
-    return(classifyReads_one(mut=mut,
-                             #expedit=expedit,
-                             scaffDetect=scaffDetect,
-                             #rhapos=rhapos,
-                             #pestrand=pestrand,
-                             scaffdetectwin=scaffdetectwin))
+    
+    if(mode=='precise') {
+      return( preciseClassify_one(mut=mut,
+                                  scaffDetect=scaffDetect,
+                                  scaffdetectwin=scaffdetectwin) )
+    } else if(mode=='frameshift') {
+      return( frameshiftClassify_one(mut=mut) )
+    }
   })
   
   ### gather in one dataframe
