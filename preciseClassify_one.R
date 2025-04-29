@@ -25,12 +25,12 @@
 
 # v4: scaffDetect argument, to turn ON or OFF scaffold detection
 
-classifyReads_one <- function(mut,
-                              #expedit,
-                              scaffDetect,
-                              #rhapos,
-                              #pestrand,
-                              scaffdetectwin=c(-2,+1)) {
+# v5: changing name to preciseClassify_one
+# will allow multiple modes in classifyReads, mode='precise' to detect classify reads when expected edit (e.g. prime editing)
+
+preciseClassify_one <- function(mut,
+                                scaffDetect,
+                                scaffdetectwin=c(-2,+1)) {
   
   ### check mut is giving data for just one sample
   if(length(unique(mut$sample))>1)
@@ -94,7 +94,7 @@ classifyReads_one <- function(mut,
       # then switch edit flag to TRUE
       rlab['expedit'] <- TRUE
     }
-  
+    
     ## other mutation(s) present?
     # can simply count number of rows
     # if edit is present and > 1 rows, then other mutation
