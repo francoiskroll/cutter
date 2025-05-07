@@ -31,22 +31,6 @@
 detectMHdel <- function(mut,
                         minMHlen=2) {
   
-  # ! in mut, mutation positions (start & stop) refer to original reference sequence
-  # *not* to reference seauence aligned (column ref)
-  # distinction is important because in the case of an insertion, ref gets additional "-"
-  # to keep positions always referring to the same reference, we have a function "fixPos" in allelesToMutations to correct for this
-  # but this means that in functions below we should always work with the original reference, not the reference listed in that row of mut
-  # so that user does not have to give manually the reference sequence, we can recover it here ourselves
-  # only case where reference is not actually the original reference sequence is if it has any "-"
-  # get all the 'true' original reference sequences:
-  orefs <- mut[!grepl('-', mut$ref, fixed=TRUE), 'ref'] # "overall references"
-  # check they are all the same, after we removed NA
-  orefs <- orefs[!is.na(orefs)]
-  if(length(unique(orefs))!=1)
-    stop('\t \t \t \t >>> Error detectMHdel: issue when computing overall reference sequence.\n')
-  # we have our overall reference sequence
-  oref <- unique(orefs)
-  
   ### loop through every row of mut
   # if type is ref or sub or ins, return all NA
   # if type is del, run MH detection
@@ -77,11 +61,9 @@ detectMHdel <- function(mut,
     cutpos <- as.integer(delrow[,'cutpos'])
     
     detectedMH <- detectMHdel_one(delrow=delrow,
-                                  oref=oref,
                                   minMHlen=minMHlen)
     
     return( recordMH(delrow=delrow,
-                     oref=oref,
                      cutpos=cutpos,
                      detectedMH=detectedMH) )
     
@@ -120,9 +102,14 @@ detectMHdel <- function(mut,
 # cutpos: nucleotide before the cut
 
 recordMH <- function(delrow,
-                     oref,
                      cutpos,
                      detectedMH) {
+  
+  # detectedMH[1] is MHside
+  # detectedMH[2] is MHseq
+  
+  # detectedMH[3] is oref
+  oref <- as.character( detectedMH['oref'] )
   
   # ! if getting detectedMH as NA, NA
   # should just return everything as NA
@@ -299,9 +286,23 @@ recordMH <- function(delrow,
 # remember, I think this is always (?) an arbitrary decision by the alignment algorithm, but could be interesting to tell whether it has a preference or not
 # MHseq: sequence of the detected MH
 detectMHdel_one <- function(delrow,
-                            oref,
                             minMHlen) {
   
+  # ! in mut, mutation positions (start & stop) refer to original reference sequence
+  # *not* to reference seauence aligned (column ref)
+  # distinction is important because in the case of an insertion, ref gets additional "-"
+  # to keep positions always referring to the same reference, we have a function "fixPos" in allelesToMutations to correct for this
+  # but this means that we should always work with the original reference, not the reference listed in that row of mut
+  # so that user does not have to give manually the reference sequence, we can recover it here ourselves
+  # only case where reference is not actually the original reference sequence is if it has any "-"
+  # so we simply take the reference sequence listed and remove the "-"
+  # that gives us "overall reference"
+  oref <- gsub('-', '', delrow['ref'])
+  
+  # check if looks OK
+  if(!is.character(oref))
+    stop('\t \t \t \t >>> Error detectMHdel: issue when computing overall reference sequence.\n')
+
   ### try left MH
   # from minimum size until we fail
   # fail = 0 means we did not fail yet
@@ -354,22 +355,25 @@ detectMHdel_one <- function(delrow,
   }
   
   ### compare left & right MH
-  # we know have left & right MH
+  # we now have left & right MH
   # compare which one is best (i.e. exists & is longest)
   if(is.na(leftMH) & is.na(rightMH)) {
     # cat('\t \t \t \t no MH detected\n') # slows down to print all of them
     return(c(side=NA,
-             MHseq=NA))
+             MHseq=NA,
+             oref=oref))
     
   } else if(!is.na(leftMH) & is.na(rightMH)) {
     cat('\t \t \t \t left MH:', leftMH, '\n')
     return(c(MHside='left',
-             MHseq=leftMH))
+             MHseq=leftMH,
+             oref=oref))
     
   } else if(is.na(leftMH) & !is.na(rightMH)) {
     cat('\t \t \t \t right MH:', rightMH, '\n')
     return(c(MHside='right',
-             MHseq=rightMH))
+             MHseq=rightMH,
+             oref=oref))
     
   } else if(!is.na(leftMH) & !is.na(rightMH)) {
     # I am guessing this is a rare occurence
@@ -393,7 +397,8 @@ detectMHdel_one <- function(delrow,
       cat('\t \t \t \t MH on both sides! Longest is right MH:', longestMH, '\n')
     }
     return(c(MHside=MHside,
-             MHseq=longestMH))
+             MHseq=longestMH,
+             oref=oref))
   }
   
 }

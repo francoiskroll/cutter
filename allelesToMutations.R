@@ -17,6 +17,7 @@
 # packages ----------------------------------------------------------------
 
 library(data.table)
+library(dplyr)
 
 
 # function allelesToMutations() -------------------------------------------
