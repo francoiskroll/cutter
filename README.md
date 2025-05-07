@@ -378,10 +378,6 @@ In both cases;
 
 * `mut` mutation table, created by `callMutations`.
 
-* `cutpos` position of cut site in reference sequence used for alignment (first nucleotide is #1). This position should point to exactly the nucleotide before the cut. For example, for reference sequence (PAM in uppercase) `attctagactNGGcattca`, we expect `cutpos=7` (position of `g`).
-
-* `cutdist` if the mutation we are studying is quite far from the cut, it is unconvincing that it is related to the Cas9 break. `cutdist` controls this "quite far" threshold. Precisely, we take all modified nucleotides (positions of the alignment where the two sequences do not match, could be e.g. `C:G`; or `-:A`; or `A:-`), and look at the modified nucleotide that is the closest to the cut. If this nucleotide is further from the cut than `cutdist` (i.e. the mutation is "quite far" from the cut), we conclude that the mutation is not related to the Cas9 break and do not analyse its origin further***.
-
 * `minLCSbp` to detect templated insertion, we compare the newly synthesised sequence to the region around the cut and extract the longest common substring (sequence). We should not conclude that we detected a templated insertion when it is just a small sub-sequence matching as this could be a coincidence. `minLCSbp` controls the minimum length of the common sub-sequence. Below this length, we conclude that the match (the common sub-sequence) is not long enough to be convincing. Rather, it could just be a coincidence so do not return the detection***. Above this length, we conclude that the match (the common sub-sequence) is long enough to be convincing and we return the detection.
 A more jargony definition of `minLCSbp`: minimum length of (in bp) of the longest common substring (sequence) between the "newly synthesised sequence" and the "search window".  
 Default is 5 bp (`minLCSbp=5`).  

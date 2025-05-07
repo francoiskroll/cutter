@@ -9,6 +9,9 @@
 
 # v0
 
+# v1
+# no more argument cutpos & cutdist, should read from the mut table
+
 # expects mutation table written by callMutations
 library(Biostrings)
 library(dplyr)
@@ -39,8 +42,6 @@ library(stringi)
 
 # for 1k rows taken as random from test dataset: improvement is ~ 36 sec to ~ 6-7 sec
 detectTemplatedIns <- function(mut,
-                               cutpos,
-                               cutdist,
                                allowStretchMatches=5,
                                extendNewlySeq=3,
                                searchWindowStarts=20,
@@ -58,21 +59,6 @@ detectTemplatedIns <- function(mut,
   
   cat('\t \t \t \t >>>', nrow(mutuni), 'unique alignments, i.e. pairs of aligned reference & read.\n')
   
-  ### recover original reference sequence
-  # first, recover the original reference seauence,
-  # i.e. the reference sequence used for alignment
-  # (in alignment, the reference sequence can get --- to indicate insertions)
-  # get all the 'true' original reference sequences:
-  # which we do by just removing the --- from the aligned reference seauences
-  orefs <- gsub('-', '', mutuni$ref) # "original references"
-  # check they are all the same, after we remove NA
-  orefs <- orefs[!is.na(orefs)]
-  
-  if(length(unique(orefs))!=1)
-    stop('\t \t \t \t >>> Error detectTemplatedIns: issue when computing overall reference sequence.\n')
-  # we have the original reference sequence
-  oref <- unique(orefs)
-  
   ### loop through every row of mutuni (so every unique alignment)
   # if type is ref or sub or del, return all NA
   # if type is ins, run detection of templated insertions
@@ -86,12 +72,16 @@ detectTemplatedIns <- function(mut,
     # alrow is alignment row
     alrow <- mutuni[rowi,]
     
+    # we should also obtain cutpos & cutdist from that row of mut
+    # check
+    if(!'cutpos' %in% names(alrow)) stop('\t \t \t \t >>> Error detectTemplatedIns: cutpos seems to be absent from the mut table?\n')
+    if(!'cutdist' %in% names(alrow)) stop('\t \t \t \t >>> Error detectTemplatedIns: cutdist seems to be absent from the mut table?\n')
+    
     # detectTemplatedIns_one simply returns LCS (Longest Common Sub-string/sequence)
     # i.e. just a string
     detectedLCS <- detectTemplatedIns_one(alrow=alrow,
-                                          oref=oref,
-                                          cutpos=cutpos,
-                                          cutdist=cutdist,
+                                          cutpos=alrow$cutpos,
+                                          cutdist=alrow$cutdist,
                                           minLCSbp=minLCSbp,
                                           allowStretchMatches=allowStretchMatches,
                                           extendNewlySeq=extendNewlySeq,
@@ -149,13 +139,23 @@ detectTemplatedIns <- function(mut,
 # detection of templated insertion on one 'insertion' row of mut
 
 detectTemplatedIns_one <- function(alrow,
-                                   oref,
                                    cutpos,
                                    cutdist,
                                    minLCSbp,
                                    allowStretchMatches,
                                    extendNewlySeq,
                                    searchWindowStarts) {
+  
+  ### recover original reference sequence
+  # first, recover the original reference seauence,
+  # i.e. the reference sequence used for alignment
+  # (in alignment, the reference sequence can get --- to indicate insertions)
+  # simply remove the --- from the aligned reference seauence
+  oref <- gsub('-', '', alrow$ref) # 'overall reference'
+  
+  # check if looks OK
+  if(!is.character(oref))
+    stop('\t \t \t \t >>> Error detectTemplatedIns_one: issue when computing overall reference sequence.\n')
   
   # split reference & aligned sequences
   refsp <- strsplit(alrow$ref, '')[[1]]
