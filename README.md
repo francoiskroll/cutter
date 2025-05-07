@@ -269,8 +269,6 @@ Runs on complete mutation table but currently only detects MH for deletions. If 
 
 * `minMHlen` minimum length allowed for the MH, in bp. Default is 2 bp.
 
-* `cutpos` position of cut site in reference sequence used for alignment (first nucleotide is #1). This position should point to exactly the nucleotide before the cut. For example, for reference sequence (PAM in uppercase) `attctagactNGGcattca`, we expect `cutpos=7` (position of `g`).
-
 Typical case looks like:  
 `MH - inner sequence - MH`  
 and deleted sequence is
