@@ -91,11 +91,11 @@ outdir=$(dirname "$configpath")
 # will put folder in folder which contains the config file
 mkdir "$(echo "$outdir"$"/bam")"
 
-### if filtering is ON, create new folder for filtered BAMs & for new back-converted fastq
+### if filtering is ON, create new folder for filtered BAMs & for new back-converted fastq (g for gunzip)
 if [[ $* == *-l* ]]
 then
     mkdir "$(echo "$outdir"$"/bamfilt")"
-    mkdir "$(echo "$outdir"$"/filterfastq")"
+    mkdir "$(echo "$outdir"$"/filterfastqg")"
 fi
 
 ################################################################################
@@ -206,12 +206,12 @@ do
 
         # we want Forward reads to be well_referenceamplicon_R1.fastq.gz, e.g. A01_psen1_2_R1.fa
         fwdfq="$(echo "$well"$"_""$amp"$"_R1.fastq")" # name of the file without .gz
-        # put it in new folder filterfastq
-        fwdfqp="$(echo "$outdir"$"/filterfastq/""$fwdfq")"
+        # put it in new folder filterfastqg
+        fwdfqp="$(echo "$outdir"$"/filterfastqg/""$fwdfq")"
 
         # we want Reverse reads to be well_referenceamplicon_R2.fastq.gz, e.g. A01_psen1_2_R2.fa
         rvsfq="$(echo "$well"$"_""$amp"$"_R2.fastq")" # name of the file without .gz
-        rvsfqp="$(echo "$outdir"$"/filterfastq/""$rvsfq")"
+        rvsfqp="$(echo "$outdir"$"/filterfastqg/""$rvsfq")"
 
         echo
         echo
@@ -260,6 +260,11 @@ done < "config.csv"
 
 ### remove config.csv
 rm config.csv
+
+### copy folder filterfastqg to filterfastq
+cp -rf "$(echo "$outdir"$"/filterfastqg")" "$(echo "$outdir"$"/filterfastq")"
+# then gunzip all the files in filterfastq
+gunzip "$(echo "$outdir"$"/filterfastq")"/*.gz
 
 shopt -u nullglob
 exit
