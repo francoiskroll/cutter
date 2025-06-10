@@ -174,6 +174,8 @@ Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will a
 
 * `scaffdetectwin` window for detection of scaffold incorporations. Default is `scaffdetectwin=c(-2,1)`. [TODO more details]
 
+* `unwantedSubs` whether (`TRUE`) or not (`FALSE`) to call base substitutions in 'unwanted mutations'. `TRUE` is more stringent but will call sequencing errors.
+
 * `exportpath` path to .csv file to create, e.g. `exportpath='~/myexperiment/mutcalls.csv'`
 
 ### simulateDel

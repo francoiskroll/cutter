@@ -28,9 +28,13 @@
 # v5: changing name to preciseClassify_one
 # will allow multiple modes in classifyReads, mode='precise' to detect classify reads when expected edit (e.g. prime editing)
 
+# v6: added argument unwantedSubs
+# changed slightly how detected unwanted mutations as a result
+
 preciseClassify_one <- function(mut,
                                 scaffDetect,
-                                scaffdetectwin=c(-2,+1)) {
+                                scaffdetectwin=c(-2,+1),
+                                unwantedSubs=FALSE) {
   
   ### check mut is giving data for just one sample
   if(length(unique(mut$sample))>1)
@@ -89,6 +93,9 @@ preciseClassify_one <- function(mut,
     # so everything below: read has at least one mutation
     # and we know "ref" is not there
     
+    # note, read can still be called reference below
+    # for example, a read that just has one substitution and no edit will be called reference (assuming unwantedSubs is FALSE)
+    
     ## is prime-edit present?
     if(expedit %in% muti$mutid) {
       # then switch edit flag to TRUE
@@ -96,14 +103,31 @@ preciseClassify_one <- function(mut,
     }
     
     ## other mutation(s) present?
-    # can simply count number of rows
-    # if edit is present and > 1 rows, then other mutation
-    # if edit is absent and > 0 rows, then other mutation
-    if(rlab['expedit'] & nrow(muti)>1) {
-      rlab['mut'] <- TRUE
-    } else if(!rlab['expedit'] & nrow(muti)>0) {
+    # can simply count number of rows,
+    # after we remove expected edit (if it is present)
+    # is expected edit present? if yes, remove it
+    muti_unw <- muti # will store unwanted mutations
+    if(rlab['expedit']) {
+      muti_unw <- muti_unw %>%
+        filter(mutid!=expedit)
+    }
+    
+    # should we count substitutions as unwanted mutation or not?
+    # if not, then exclude substitutions
+    if(!unwantedSubs) {
+      muti_unw <- muti_unw %>%
+        filter(type!='sub')
+    }
+    
+    # if any rows left in unwanted mutations, then we have some unwanted mutations
+    # flip 'mut' flag to TRUE
+    if(nrow(muti_unw)>0) {
       rlab['mut'] <- TRUE
     }
+    # note, if read only has a substitution (no expected edit)
+    # and unwantedSubs is FALSE
+    # then all three flags are still FALSE and read will be called reference below
+    
     
     ## detect scaffold incorporation
     if(scaffDetect) {
@@ -136,9 +160,10 @@ preciseClassify_one <- function(mut,
       
       if(nrow(scaff)>0) {
         rlab['scaffold'] <- TRUE
-        # if scaffold is present, mut flag is guaranteed to be TRUE
-        # check
-        if(!rlab['mut']) stop('\t \t \t \t Error classifyReads_one: detected scaffold but "mut" flag for this read is FALSE, which does not make sense.\n')
+        # note v6: scaffold can be present and mut flag be FALSE if unwantedSubs is FALSE
+        # in other words: unwantedSubs will exclude the scaffold incorporation (if it is only a substitution)
+        # if nothing else in the read, then mut is FALSE
+        # but scaffold detection can still detect the scaffold
       }
     }
     
@@ -152,18 +177,28 @@ preciseClassify_one <- function(mut,
   # now add columns to classify reads
   # read categories
   rcats <- sapply(1:nrow(rlabs), function(r) {
-    # row is:
-    rl <- rlabs[r,]
+    # from row, only keep expedit / mut / scaffold flags
+    # as a vector of booleans
+    rl <- as.logical( rlabs[r, c('expedit', 'mut', 'scaffold')] )
+    # add back the names
+    names(rl) <- c('expedit', 'mut', 'scaffold')
     
-    if(!rl['expedit'] & !rl['mut']) {
+    # no edit, no unwanted mutations, no scaffold = reference
+    if(!rl['expedit'] & !rl['mut'] & !rl['scaffold']) {
       return('reference')
-    } else if(rl['expedit'] & !rl['mut'] & !rl['scaffold']) { # if edit and no mutation, no scaffold
+    # edit, no unwanted mutations, no scaffold = pure edit
+    } else if(rl['expedit'] & !rl['mut'] & !rl['scaffold']) {
       return('pure')
-    } else if(rl['expedit'] & rl['mut'] & !rl['scaffold']) { # if edit and mutation, but no scaffold
+    # edit, but also unwanted mutations (that is not scaffold) = impure edit
+    } else if(rl['expedit'] & rl['mut'] & !rl['scaffold']) {
       return('impure')
+    # no edit and unwanted mutations (that is not scaffold) = mutated
+    # this category can also be called "indel" is unwantedSubs is FALSE
     } else if(!rl['expedit'] & rl['mut'] & !rl['scaffold']) { # if no edit, but mutation (no scaffold)
       return('mutated')
-    } else if(rl['mut'] & rl['scaffold']) { # if mutated & scaffold (agnostic re edit)
+    # category "scaffold" trumps everything
+    # if we see scaffold, we call that read scaffold, whatever the situation is regarding edit/other unwanted mutations
+    } else if(rl['scaffold']) { # if scaffold (agnostic re edit or unwanted mutations)
       return('scaffold')
     }
   })

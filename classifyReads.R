@@ -18,10 +18,13 @@
 
 # v5: takes rhapos from meta file
 
+# v6: added argument unwantedSubs
+
 classifyReads <- function(mut,
                           mode='precise',
                           scaffDetect=FALSE,
                           scaffdetectwin=c(-2,+1),
+                          unwantedSubs=FALSE,
                           exportpath) {
   
   ### check export path ends with .csv
@@ -75,6 +78,7 @@ classifyReads <- function(mut,
   
   ### gather in one dataframe
   rlab <- do.call(rbind, rlabL)
+
   # make sure it does not add row names
   row.names(rlab) <- NULL
   # export

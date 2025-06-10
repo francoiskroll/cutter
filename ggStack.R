@@ -93,6 +93,7 @@ ggStack <- function(rlab,
                     titleSize=9,
                     ytitleSize=9,
                     ytextSize=7,
+                    panelSpacing=NA,
                     exportOrNo=TRUE,
                     width=159.1,
                     height=82.03,
@@ -118,8 +119,7 @@ ggStack <- function(rlab,
   rtal <- rlab %>%
     group_by(sample, cat, .drop=FALSE) %>%
     tally(name='nreads')
-  
-  print( unique(rtal$cat) )
+
   # then add back meta information
   rmeta <- rlab %>%
     distinct(sample, .keep_all=TRUE) %>%
@@ -251,7 +251,8 @@ ggStack <- function(rlab,
     {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
     {if(!titleOrNo) theme(strip.text.x=element_blank())} +
     {if(!xgrid) theme(panel.grid.major.x=element_blank())} +
-    {if(!legendOrNo) theme(legend.position='none')}
+    {if(!legendOrNo) theme(legend.position='none')} +
+    {if(!is.na(panelSpacing)) theme(panel.spacing = unit(panelSpacing, 'pt'))}
   
   print(ggstack)
   
