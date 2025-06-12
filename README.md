@@ -108,7 +108,9 @@ Read with only a mutation at edge is counted as reference, see alleleToMutation.
 
 classifyReads, expedit = NA will never call edit (perhaps obvious), only two possible categories become reference and mutated.
 
-Start position of insertion is first inserted nucleotide minus 1, i.e. last aligned nucleotide. Start position of deletion is first deleted nucleotide.
+Start position of insertion is first inserted nucleotide minus 1, i.e. last aligned nucleotide. Stop position is always the same as start.
+
+Start position of deletion is first deleted nucleotide. Stop position is last deleted nucleotide.
 
 About insertion: this makes it possible to have two mutations at the same position. For example, a 1-bp substitution directly followed by an insertion would give same position for the substitution and the start of the insertion. e.g.
 ```
@@ -128,38 +130,37 @@ Both deletions are the same, just an arbitrary alignment algorithm decision. But
 
 
 ### about scaffold detection
-v2: read class "scaffold" trumps all others, i.e. agnostic to edit or other mutations, if scaffold is there, it will be label read as "scaffold".
+We always align to the align to 5'–3' (genome direction) fasta reference sequence, so we can assume reads always represent the Forward genome.
 
-Potentially important for scaffold direction: always align to 5'–3' (genome direction) fasta reference sequence, so we can assume reads always represent the Fw genome.
-
-After RTT, scaffold (standard) is CCTGGC... (reading in same direction as RT, i.e. from PBS to RTT).  
-* If PE occurs in Forward strand: incorporates scaffold in Forward strand as GGACCG... (reading from the RTT-templated nucleotides)  
-* If PE occurs in Reverse strand: incorporates scaffold in Reverse strand as GGACCG... (reading from the RTT-templated nucleotides), which appears in the Forward strand as CCTGGC... (reading from the RTT templated nucleotides) or ...CGGTCC reading 5'–3' genome.
+After RTT, scaffold (standard) is `CCTGGC...` (reading in same direction as RT, i.e. from PBS to RTT).  
+* PE on Forward strand: incorporates scaffold in Forward strand as `GGACCG...` (reading from the RTT-templated nucleotides)  
+* PE on Reverse strand: incorporates scaffold in Reverse strand as `GGACCG...` (reading from the RTT-templated nucleotides), which appears in the Forward strand as `CCTGGC...` (reading from the RTT templated nucleotides) or `...CGGTCC` reading 5'–3' genome.
 
 Defined RHA position (`rhapos`) as last nucleotide templated from the RTT (maybe "ligation position" would be a better name).
-* PE on Forward strand: expect scaffold to be `rhapos` + 1, substitution or insertion that _starts_ with G.
-* PE on Reverse strand: expect scaffold to be `rhapos` - 1, substitution or insertion that _ends_ with C (as we are looking at Forward strand reads).  
+* PE on Forward strand: expect scaffold insertion to start at `rhapos` and scaffold substitution to start (first mismatch) at `rhapos + 1`, both starting with `G`.
+* PE on Reverse strand: expect scaffold insertion & substitution to stop at `rhapos - 1`, both ending with `C` (as we are looking at Forward strand reads).  
 
-! also impacts if want to look at `start` or `stop` for scaffold and whether sequence _starts_ or _ends_ with a given nucleotide. I set start to be always lower number (so more 5' on reference/genome) & stop to be always higher number.
-* PE on Forward strand: scaffold mutation's `start` is closer to `rhapos`, and mutation _starts_ with G. 
-* PE on Forward strand: scaffold mutation's `stop` is closer to `rhapos`, and mutation _ends_ with C.  
+About positions: a mutation's start is always the same or lower number than its stop (so more 5' on reference/genome).
+* PE on Forward strand: scaffold mutation's `start` is closer to `rhapos` (just after), and mutation _starts_ with G. 
+* PE on Reverse strand: scaffold mutation's `stop` is closer to `rhapos` (just before), and mutation _ends_ with C.  
 
-TODO: need to check again scaffdetectwin. Probably did not take this into account, especially if asymmetrical.
-TODO: for filtering, did I take this into account? Looking at all positions between start and stop should be OK.
+TODO: for filtering, did I take this into account the reverse/forward thing? Is it OK to have a symmetrical window? Looking at all positions between start and stop should be OK.
 TODO: I am not sure about decision to add filtered-out reads as reference reads. Probably they should just be thrown out? i.e. they will be removed from mutated reads & total reads. Currently, by switching their labels to "ref", we removing them from mutated reads, but keeping them in total reads. ! those "manually edited to ref" reads will have ref & ali sequence as NA. While sequences directly called as ref before filterMutations (including those which were called as ref because the mutation was at the edge) have the actual ref & ali sequences.
 
 ### classifyReads
 
 Assigns categories to individual reads. Every read is assigned to one and only one category.
 
-There are two modes: precise and frameshift.
+There are two modes: `precise` and `frameshift`.
 
 Mode `precise` is when a precise edit is expected, for example in the case of homology-directed repair, base editing, or prime editing. It will assign to each read one of the following labels:
-* `reference` if the read is reference (no mutation around the PAM).
-* `scaffold` (optional) if the read contains evidence of scaffold incorporation. This is most relevant in the case of prime editing.
-* `mutated` [TODO should be replaced by 'indel'] if the edit is absent and the read contains one or more indels. The edit could be absent either because the region is reference or because the region was deleted.
-* `impure` if the edit is present but the read also contains one or more indels (also substitutions?).
-* `pure` if the edit is present and no other mutations are present.
+* `reference` if the read is reference; that is, there is no mutation* in the editing window.
+* `scaffold` (optional) if the read contains evidence of scaffold incorporation. This is most relevant in the case of prime editing. This category trumps all others; that is, if there is evidence of scaffold incorporation, the read is assigned to the `scaffold` category, regardless of other edits/mutations.
+* `mutated` if the edit is absent and the read contains one or more unwanted mutations*. The edit could be absent either because the region is reference or because the region was deleted.
+* `impure` if the edit is present but the read also contains one or more unwanted mutations*.
+* `pure` if the edit is present and no other unwanted mutations* are present. 
+
+>*Argument `unwantedSubs` (see below) controls whether substitutions count as unwanted mutations or no.
 
 Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will assign to each read one of the following labels:
 * `reference` if the read is reference (no mutation around the PAM).
@@ -172,11 +173,21 @@ Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will a
 
 * `scaffDetect` whether (`TRUE`) or not (`FALSE`) to detect scaffold incorporations. Default is not to detect scaffold incorporations (`scaffDetect=FALSE`).
 
-* `scaffdetectwin` window for detection of scaffold incorporations. Default is `scaffdetectwin=c(-2,1)`. [TODO more details]
+* `whichScaff` which scaffold sequence is used. Options are: `std`, `std2`, `altAAAA`, `altUAAA`, `altGAAA`. It is not absolutely essential to know for certain as, in most cases, we only look whether the last (3') nucleotide of the scaffold is present in the sequence at the expected position and this position does not vary between the possible scaffolds. Better would be to know whether the scaffold nucleotides after the RTT (reading from the RTT into the scaffold) are `CC` (set `whichScaff="std"`) or `CG` (set `whichScaff="std2"`). Default is `whichScaff='std'`.
 
-* `unwantedSubs` whether (`TRUE`) or not (`FALSE`) to call base substitutions in 'unwanted mutations'. `TRUE` is more stringent but will call sequencing errors.
+* `scaffWin` window for detection of scaffold incorporations, where position 0 is `rhapos` (the last nucleotide that is templated from the RTT). When PE is on the Forward strand, default is `scaffWin=c(0, 0)`; when PE is on the Reverse strand, default is `scaffWin=c(-1, -1)`. Do not mention or set as `scaffWin=NA` to use the default.  
+Note setting is not intuitive to set correctly.  
+If PE is on the Forward strand, the theoretical scaffold _insertion_ starts exactly at `rhapos` (by convention, start position of an insertion is last aligned nucleotide, so the insertion starts just after).  
+If PE is on the Reverse strand, the theoretical scaffold _insertion_ stops exactly at `rhapos - 1`.  
+On Forward strand, this changes if scaffold incorporation appears as a _substitution_. In this case, first mismatch will be `rhapos + 1`. Do not attempt to account for this, function will do so internally. Assume scaffold incorporations are always insertions.  
+On Reverse strand, scaffold _substitutions_ do not change the situation. We expect last mismatch to be `rhapos - 1 `.  
+The situation gets more complicated if the sequence at the expected scaffold incorporation site happens to match what the scaffold incorporation would be. Find examples in figure below.
+
+* `unwantedSubs` whether (`TRUE`) or not (`FALSE`) to call base substitutions as unwanted mutations. `TRUE` is more stringent but will call sequencing errors. If `FALSE`, "indels" is an acceptable name for the "mutated" read category.
 
 * `exportpath` path to .csv file to create, e.g. `exportpath='~/myexperiment/mutcalls.csv'`
+
+![fig scaffold detection](readme_figs/scaffoldSearch.png)
 
 ### simulateDel
 
@@ -454,3 +465,6 @@ Detection of insertions templated from sequences flanking the cut (`detectTempla
 
 * v5  
 New function `simulateDel` to simulate reads with deletions to provide a "null hypothesis" baseline for `detectMHdel`.
+
+* v6  
+More precise detection of scaffold incorporation in `preciseClassify_one`.

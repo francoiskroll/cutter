@@ -6,6 +6,8 @@
 # francois@kroll.be
 #####################################################
 
+source('~/Dropbox/cutter/reversecomplement.R') # preciseClassify_one needs it
+
 # v1
 
 # v2: with classifyReads_one_v2.R which includes scaffold detection
@@ -23,7 +25,8 @@
 classifyReads <- function(mut,
                           mode='precise',
                           scaffDetect=FALSE,
-                          scaffdetectwin=c(-2,+1),
+                          whichScaff='std',
+                          scaffWin=NA,
                           unwantedSubs=FALSE,
                           exportpath) {
   
@@ -67,13 +70,25 @@ classifyReads <- function(mut,
     cat('\t \t \t \t >>> Sample', muti, 'out of', length(mutL), '\n')
     mut <- mutL[[muti]]
     
+    ### mode PRECISE
     if(mode=='precise') {
-      return( preciseClassify_one(mut=mut,
+      
+      # we should only have one 'pestrand'
+      if(length(unique(mut$pestrand))>1)
+        stop('\t \t \t \t >>> Error classifyReads: more than one "pestrand" value within one sample, which does not make sense.\n')
+      
+      return( preciseClassify_one(mut,
                                   scaffDetect=scaffDetect,
-                                  scaffdetectwin=scaffdetectwin) )
+                                  pestrand=unique(mut$pestrand),
+                                  whichScaff=whichScaff,
+                                  scaffWin=scaffWin,
+                                  unwantedSubs=unwantedSubs) )
+      
+      ### mode FRAMESHIFT
     } else if(mode=='frameshift') {
       return( frameshiftClassify_one(mut=mut) )
     }
+    
   })
   
   ### gather in one dataframe
