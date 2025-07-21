@@ -75,6 +75,17 @@ filterMutations <- function(muttb,
   # for "ref" mutation, better to just have mutid as "ref"
   muttb[which(muttb$mutid=='ref_NA_NA_NA_NA_NA'), 'mutid'] <- 'ref'
   
+  
+  ### record overall reference sequence
+  # this is reference sequence written, minus any hyphens
+  # take all reference sequences that are not NA
+  # remove any -
+  orefs <- gsub('-', '', muttb[!is.na(muttb$ref), 'ref'])
+  # check they are all the same
+  if(length(unique(orefs))>1)
+    stop('\t \t \t \t >>> Error filterMutations: more than one original reference sequence in this sample\'s mutation table, which does not make sense.\n')
+  oref <- unique(orefs)
+  
   ### keep ref mutations aside
   # we should never remove them
   # so keep them aside then we will put them back after
@@ -345,7 +356,7 @@ filterMutations <- function(muttb,
                           bp=NA,
                           refseq=NA,
                           altseq=NA,
-                          ref=NA,
+                          ref=oref,
                           ali=NA,
                           rid=filtids,
                           splcov=splcov)

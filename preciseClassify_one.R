@@ -268,6 +268,9 @@ preciseClassify_one <- function(mut,
   # loop through unique read IDs
   rlabsL <- lapply(uids, function(ui) {
     
+    # for debug
+    # cat('ui is', ui, '\n')
+    
     ## preallocate vector which is
     # 1) prime-edit present?; 2) other mutation present?; 3) scaffold present?
     # preallocate as FALSE, FALSE, FALSE so = reference read
@@ -354,7 +357,7 @@ preciseClassify_one <- function(mut,
         # but we do want to *shift* the window if some nucleotides match
         scaff_sub <- muti %>%
           filter(type == 'sub') %>%
-          filter(start %in% (scaffdetectpos + 1 + nti) ) %>%
+          filter( start %in% (scaffdetectpos + 1 + nti) ) %>%
           # we use original window, but shifted if some nucleotides match
           # typically c(0,0); then e.g. nti = 2 would be c(2,2)
           filter(startsWith(altseq,
@@ -377,7 +380,7 @@ preciseClassify_one <- function(mut,
   
         scaff_sub <- muti %>%
           filter(type == 'sub') %>%
-          filter(stop %in% scaffdetectpos - nti) %>% # *** here stop, not start; using original window
+          filter( stop %in% (scaffdetectpos - nti) ) %>% # *** here stop, not start; using original window
           # but window may be shifted if some nucleotides match
           # typically c(-1,-1); then e.g. nti = 2 would be c(-3,-3)
           filter(endsWith(altseq,

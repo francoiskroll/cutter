@@ -145,7 +145,7 @@ About positions: a mutation's start is always the same or lower number than its 
 * PE on Reverse strand: scaffold mutation's `stop` is closer to `rhapos` (just before), and mutation _ends_ with C.  
 
 TODO: for filtering, did I take this into account the reverse/forward thing? Is it OK to have a symmetrical window? Looking at all positions between start and stop should be OK.
-TODO: I am not sure about decision to add filtered-out reads as reference reads. Probably they should just be thrown out? i.e. they will be removed from mutated reads & total reads. Currently, by switching their labels to "ref", we removing them from mutated reads, but keeping them in total reads. ! those "manually edited to ref" reads will have ref & ali sequence as NA. While sequences directly called as ref before filterMutations (including those which were called as ref because the mutation was at the edge) have the actual ref & ali sequences.
+TODO: I am not sure about decision to add filtered-out reads as reference reads. Probably they should just be thrown out? i.e. they will be removed from mutated reads & total reads. Currently, by switching their labels to "ref", we removing them from mutated reads, but keeping them in total reads. ! those "manually edited to ref" reads will have ref sequence as overall reference sequence & ali sequence as NA. On the other hand, sequences directly called as ref before filterMutations (including those which were called as ref because the mutation was at the edge) have the real ref & ali sequences.
 
 ### classifyReads
 
