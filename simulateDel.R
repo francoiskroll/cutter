@@ -23,7 +23,6 @@ library(MASS)
 
 simulateDel <- function(mut,
                         nreads=1000,
-                        mincov=100,
                         cutpos,
                         cutDelbp=3,
                         awayfromCut=4,

@@ -199,8 +199,6 @@ Simulates deletions and add them to the mutation table as one simulated sample. 
 
 * `nreads` number of reads to simulate, which is also number of rows added to the mutation table.
 
-* `mincov` setting for internal function `fitDelLengths` which fits the deletion lengths using a log-normal distribution. Minimum coverage (number of reads) of one sample to use it when fitting. Goal is to exclude samples with low coverage because we cannot be confident in the the deletion frequencies (e.g. 1 read with a 11-bp deletion in a sample with 4 reads probably does not mean that the frequency of this 11-bp deletion is 25%). Default is 100 (`mincov=100`).
-
 * `cutpos` position of cut site in reference sequence used for alignment (first nucleotide is #1). This position should point to exactly the nucleotide before the cut. For example, for reference sequence (PAM in uppercase) `attctagactNGGcattca`, we expect `cutpos=7` (position of `g`).
 
 * `cutDelbp` generally, deletions must remove the 'cutpos' nucleotide, but we relax this requirement for very short deletions. Setting controls this length threshold, it is the minimum size of a deletion that must delete the 'cutpos' nucleotide. Default is 3 bp (`cutDelbp=3`), meaning any deletion that is 3 bp or longer must delete the 'cutpos' nucleotide. For shorter deletion, see below.
@@ -477,5 +475,5 @@ New function `simulateDel` to simulate reads with deletions to provide a "null h
 * v6  
 More precise detection of scaffold incorporation in `preciseClassify_one`.
 
-* v7
+* v7  
 Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 233 samples). See fitDelLengths_notes.R for details about fitting the log-normal distribution. The parameters of the distribution are now set as defaults in `simulateDel`.
