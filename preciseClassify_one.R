@@ -326,6 +326,8 @@ preciseClassify_one <- function(mut,
     # and unwantedSubs is FALSE
     # then all three flags are still FALSE and read will be called reference below
     
+    #########
+    
     ### detect scaffold incorporation ###
     if(scaffDetect) {
       
@@ -345,13 +347,26 @@ preciseClassify_one <- function(mut,
         # if insertion: we expect scaffold at rhapos
         # if substitution: we expect scaffold at rhapos + 1
         # test each separately, and shift by +1 when we look for substitutions
+        
+        ### INSERTION
         scaff_ins <- muti %>%
           filter(type == 'ins') %>%
           filter(start %in% scaffdetectposAdj) %>% # we use adjusted window
           # typically just one position: rhapos
           # but may have been extended slightly
-          filter(startsWith(altseq, substr(scaffSeq, 1, 1)))
+          filter(startsWith(altseq,
+                            substr(scaffSeq, 1, 1)))
         
+        # >>> did we find something? if yes & mutation is longer than 1 bp, we can also check that the second nucleotide matches
+        # this will further reduce false positive detections
+        if(nrow(scaff_ins)==1) {
+          if(scaff_ins$bp>1) {
+            scaff_ins <- scaff_ins %>%
+              filter( substr(altseq, 2, 2) == substr(scaffSeq, 2, 2) )
+          }
+        }
+        
+        ### SUBSTITUTION
         # ! if substitution, it does not make sense to use the adjusted window
         # we know what the alignment algorithm will do so we should stay as stringent (not extend the window)
         # but we do want to *shift* the window if some nucleotides match
@@ -366,18 +381,39 @@ preciseClassify_one <- function(mut,
           # rather, we would expect to find the 3rd nucleotide of the scaffold
           # if nti = 0, we just look for first nucleotide, i.e. G
         
+        # >>> did we find something? if yes & mutation is longer than 1 bp, we can also check that the second nucleotide matches
+        # this will further reduce false positive detections
+        if(nrow(scaff_sub)==1) {
+          if(scaff_sub$bp>1) {
+            scaff_sub <- scaff_sub %>%
+              filter( substr(altseq, 2, 2) == substr(scaffSeq, 2+nti, 2+nti) )
+          }
+        }
+        
         scaff <- rbind(scaff_ins, scaff_sub)
         
       } else if(pestrand=='reverse') {
         # for reverse, it does not make a difference to stop position whether insertion or substitution
         # in case of substitution, last mismatch would also be rhapos - 1
         # but, we still need to separate the two for a few reasons, see below
+        
+        ### INSERTION
         scaff_ins <- muti %>%
           filter(type == 'ins') %>%
           filter(stop %in% scaffdetectposAdj) %>% # *** here stop, not start; using adjusted window
           filter(endsWith(altseq,
                           substr(scaffSeq, nchar(scaffSeq), nchar(scaffSeq)))) # *** here endsWith (not startsWith) last nucleotide of scaffSeq
-  
+        
+        # >>> did we find something? if yes & mutation is longer than 1 bp, we can also check that the second nucleotide matches
+        # this will further reduce false positive detections
+        if(nrow(scaff_ins)==1) {
+          if(scaff_ins$bp>1) {
+            scaff_ins <- scaff_ins %>%
+              filter( substr(altseq, nchar(altseq)-1, nchar(altseq)-1) == substr(scaffSeq, nchar(scaffSeq)-1, nchar(scaffSeq)-1) )
+          }
+        }
+        
+        ### SUBSTITUTION
         scaff_sub <- muti %>%
           filter(type == 'sub') %>%
           filter( stop %in% (scaffdetectpos - nti) ) %>% # *** here stop, not start; using original window
@@ -388,6 +424,15 @@ preciseClassify_one <- function(mut,
         # e.g. scaffSeq is ...GTCGGTCC and nti is 2 (so CC match reference sequence)
         # then we expect to find T as first mismatch
         # which is correct: nchar would be 8, minus 2 is 6, gives T
+        
+        # >>> did we find something? if yes & mutation is longer than 1 bp, we can also check that the second nucleotide matches
+        # this will further reduce false positive detections
+        if(nrow(scaff_sub)==1) {
+          if(scaff_sub$bp>1) {
+            scaff_sub <- scaff_sub %>%
+              filter( substr(altseq, nchar(altseq)-1, nchar(altseq)-1) == substr(scaffSeq, nchar(scaffSeq)-nti-1, nchar(scaffSeq)-nti-1) )
+          }
+        }
         
         scaff <- rbind(scaff_ins, scaff_sub)
         # ! if e.g. 2 nt match, we expect to find 3rd nucleotide of the scaffold, counting from the last
