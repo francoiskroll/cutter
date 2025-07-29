@@ -23,11 +23,16 @@ library(MASS)
 
 simulateDel <- function(mut,
                         nreads=1000,
-                        cutpos,
                         cutDelbp=3,
                         awayfromCut=4,
                         fit_meanlog=1.955957,
                         fit_sdlog=0.8970051) {
+  
+  # get setting cutpos from the existing mut dataframe
+  # ! can only simulate a sample for *one* locus
+  # check that we only have one locus
+  if(length(unique(mut$locus))>1) stop('\t \t \t \t Error simulateDel: can only simulate a sample for *one* locus at a time.\n')
+  cutpos <- unique(mut$cutpos)
   
   ### now simulate `nreads` with each a deletion
   # step below is surprisingly slow...
