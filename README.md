@@ -189,6 +189,8 @@ The situation gets more complicated if the sequence at the expected scaffold inc
 
 ![fig scaffold detection](readme_figs/scaffoldSearch.png)
 
+On top of above, if the mutation (insertion or substitution) that is detected as potential scaffold incorporation is longer than 1 bp, we also check that the mutation's _second_ nucleotide also matches the expected scaffold sequence, which further reduces false positive detections. The process is the same as detailed in the figure, just shifting positions by 1 bp to the right (+1) when PE is on the Forward strand or 1 bp to the left (−1) when PE is on the Reverse strand.
+
 ### simulateDel
 
 Simulates deletions and add them to the mutation table as one simulated sample. `detectMHdel` can then be run on the entire mutation table, including the simulated sample. The goal is to provide a baseline for MH deletions expected from random, as a kind of null hypothesis (see comment about this below).
@@ -205,7 +207,13 @@ Simulates deletions and add them to the mutation table as one simulated sample. 
 
 * `awayfromCut` if the deletion is very short (shorter than `cutDelbp` bp), how far from the cut do we allow it to be. Default is 4 bp (`awayfromCut=4`).
 
-    Example: deletion size is 2 bp (which is below `cutDelbp`) and `awayfromCut` is 4 bp, then in the following sequence (PAM is GGG, `cutpos` nucleotide is C, actual cut is at ^):
+* `fit_meanlog` $\mu$ parameter of the log-normal distribution describing observed deletion lengths after Cas9-mediated double-strand breaks in zebrafish embryos. Default is `fit_meanlog=1.955957`.
+
+* `fit_sdlog` $\sigma$ parameter of the log-normal distribution describing observed deletion lengths after Cas9-mediated double-strand breaks in zebrafish embryos. Default is `fit_sdlog=0.8970051`.
+
+> See fitDelLengths_notes.R for details about fitting typical deletion lengths. It uses sequencing data from n = 233 larvae (191 injected with Cas9 RNP) with mutations at n = 38 loci.
+
+    simulateDel example: deletion size is 2 bp (which is below `cutDelbp`) and `awayfromCut` is 4 bp, then in the following sequence (PAM is GGG, `cutpos` nucleotide is C, actual cut is at ^):
     ```
     aggtcgtC^atgGGGccg
     ```
@@ -468,3 +476,6 @@ New function `simulateDel` to simulate reads with deletions to provide a "null h
 
 * v6  
 More precise detection of scaffold incorporation in `preciseClassify_one`.
+
+* v7
+Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 233 samples). See fitDelLengths_notes.R for details about fitting the log-normal distribution. The parameters of the distribution are now set as defaults in `simulateDel`.

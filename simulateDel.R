@@ -13,6 +13,11 @@ library(MASS)
 
 # expects mut, mutation table
 
+# v1
+# cf. fitDelLengths_notes on Cas9DB v0: log-normal parameters of deletion lengths are
+# flog$estimate[1] = meanlog = 1.955957
+# flog$estimate[2] = sdlog = 0.8970051
+
 
 # simulateDel -------------------------------------------------------------
 
@@ -21,18 +26,17 @@ simulateDel <- function(mut,
                         mincov=100,
                         cutpos,
                         cutDelbp=3,
-                        awayfromCut=4) {
-  
-  ### fit distribution of deletion lengths with a log-normal function
-  logparams <- fitDelLengths(mut=mut,
-                             mincov=mincov)
+                        awayfromCut=4,
+                        fit_meanlog=1.955957,
+                        fit_sdlog=0.8970051) {
   
   ### now simulate `nreads` with each a deletion
   # step below is surprisingly slow...
   simdelL <- lapply(1:nreads, function(i) {
     cat('\t \t \t \t simulating read', i, 'of', nreads, '\n')
     simulateDel_one(mut=mut,
-                    logparams=logparams,
+                    fit_meanlog=fit_meanlog,
+                    fit_sdlog=fit_sdlog,
                     cutpos=cutpos,
                     cutDelbp=3,
                     awayfromCut=4)
@@ -124,7 +128,8 @@ simulateDel <- function(mut,
 # simulateDel_one ---------------------------------------------------------
 
 simulateDel_one <- function(mut,
-                            logparams,
+                            fit_meanlog,
+                            fit_sdlog,
                             cutpos,
                             cutDelbp,
                             awayfromCut) {
@@ -141,8 +146,8 @@ simulateDel_one <- function(mut,
     len <- 0
     while(len==0) {
       len <- round(rlnorm(n=1,
-                          meanlog=logparams[1],
-                          sdlog=logparams[2]))
+                          meanlog=fit_meanlog,
+                          sdlog=fit_sdlog))
     }
     
     ### recover original reference sequence
@@ -254,80 +259,6 @@ simulateDel_one <- function(mut,
 }
 
 
-
-# fitDelLengths -----------------------------------------------------------
-
-# takes a big dataset as input
-# gives as many samples & loci as possible
-# will fit a log-normal distribution of deletion lengths
-# reproduces key steps of fitDelLengths_notes.R
-
-# will hard-code a default fit at some point
-# so this function is only if want to fit it again, e.g. different model or experimental condition
-
-# e.g.
-# fitDelLengths(mut=read.csv('~/Dropbox/cutter/mutcallsTest.csv'),
-#               mincov=100)
-
-fitDelLengths <- function(mut,
-                          mincov=100) {
-  
-  #### TODO
-  # I am not confident about the approach below anymore
-  # shouldn't we be taking frequencies as out of total deleted reads in each sample?
-  # take a sample which is 10% mutated, and 90% of mutations are a 11-bp deletion
-  # then, frequency of 11-bp deletion is 9%, so the 11-bp deletion is rare
-  # but really it should mean the 11-bp deletion is very frequent, as it occured 9 times out of 10
-  
-  
-  ### get all the deletions
-  del <- mut %>%
-    filter(type=='del')
-  
-  ### normalise all coverage to total 1000 reads
-  # co1k for counts out of 1000x coverage
-  del <- del %>%
-    mutate(co1k=round(freq*1000))
-  
-  # now, we want unique deletions within each sample
-  # and we count it "co1k" times
-  delu <- del %>%
-    distinct(sample, mutid, .keep_all=TRUE)
-  # we loop through these deletions,
-  # and each time repeat their lengths "co1k" times
-  # essentially we re-create the dataset as if every sample had exactly coverage 1000x
-  lens <- unlist(sapply(1:nrow(delu), function(ro) {
-    # from this row, get the deletion length & the normalised count
-    # and return length, `normalised count` times
-    # e.g. we get 8 bp deletion, and normalised count is 4
-    # we return 8 8 8 8
-    rep( delu[ro, 'bp'] , delu[ro, 'co1k'])
-  }))
-  # unlist: we can throw all together, no need to keep track of samples etc.
-  # we now have all the deletion lengths, as if every sample had the same coverage
-  
-  ### fit log-normal distribution
-  flog <- fitdistr(lens, 'lognormal', lower=1)
-  # lower: lower bound, which is 1 (bp) here
-  
-  ### plot fit on density plot
-  gglog <- ggplot(del, aes(x=bp)) + 
-    geom_density() +
-    stat_function(
-      fun=dlnorm,
-      args=list(meanlog=flog$estimate[1],
-                sdlog=flog$estimate[2]),
-      colour='red'
-    )
-  print(gglog)
-  
-  ### return the log-normal parameter
-  # vector meanlog, sdlog
-  return(c(flog$estimate[1],
-           flog$estimate[2]))
-}
-
-
 # freqBins ----------------------------------------------------------------
 
 # small utilities function
@@ -373,6 +304,73 @@ freqBins <- function(v,
   # dataframe
   # breaks: last value of each bin
   # counts: number of observations in this bin
+  
+  return(hisd)
+  
+}
+
+
+
+
+# sumFreqBins -------------------------------------------------------------
+
+# similar as freqBins
+# but we sum frequencies within each bin
+# assumes that frequencies were calculated already
+# small utilities function
+# to turn some data (e.g. deletion lengths) into frequency within bins
+# df: a dataframe with the values to split into bins & the frequencies
+# colVals / colFreqs: name of the columns with values to split / with frequencies
+# every: new bin every x, i.e. controls the breaks
+
+sumFreqBins <- function(df,
+                        colVals,
+                        colFreqs,
+                        every,
+                        lower=0,
+                        last=NA) {
+  
+  # values to split into bins
+  v <- as.numeric(unlist(df[colVals]))
+  
+  # frequencies
+  fs <- as.numeric(unlist(df[colFreqs]))
+  
+  # decide what the last break is
+  if(is.na(last)) {
+    # %% is modulo: e.g. 57 %% 5 gives 2 because 55 can be divided by 5, then remains 2
+    # so we can tell how much we need to add to make it divisible based on the remainder
+    remainder <- max(v, na.rm=TRUE) %% every
+    
+    if(remainder != 0) {
+      toadd <- every - (max(v, na.rm=TRUE) %% every) + lower
+    } else {
+      toadd <- 0
+    }
+    # say every is 5
+    # if max(v) was
+    # 51, gives 4 > correct
+    # 52, gives 3 > correct
+    # 53, gives 2 > correct
+    # 54, gives 1 > correct
+    # 55, gives 5 > incorrect, we should add nothing
+    # just catch this case
+    lastbreak <- max(v, na.rm=TRUE) + toadd
+  } else {
+    lastbreak <- last
+  }
+  
+  breaks <- seq(from=lower, to=lastbreak, by=every)
+  
+  # sum frequencies within each bin
+  sumfs <- aggregate(fs, by=list(bin = cut(v, breaks=breaks)), FUN=sum)
+  
+  # prepare small dataframe to plot
+  hisd <- data.frame(upbound=breaks[2:length(breaks)],
+                     sumfreq=sumfs$x)
+  # dataframe
+  # upbound: last value of each bin
+  # sumfreq: sum of frequencies within this bin
   
   return(hisd)
   
