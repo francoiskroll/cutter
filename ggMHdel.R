@@ -1,5 +1,5 @@
 #####################################################
-# ~ miseqUtils/cutter: plot stacked barplot of deletions with microhomology ~
+# ~ cutter: plot stacked barplot of deletions with microhomology ~
 #
 #
 # Francois Kroll 2025
@@ -28,9 +28,33 @@ ggMHdel <- function(mut,
                     width=110,
                     height=65) {
   
-  ### keep only reads with deletion
+  ### keep only deletions
   del <- mut %>%
     filter(type=='del')
+  
+  ### ! one read can have more than one deletions
+  # there is no great way to deal with those, best is probably to remove them
+  # otherwise we count one read multiple times below, so axis as % of reads is not perfectly correct
+  
+  # add unique read id
+  del <- del %>%
+    mutate(urid=paste(sample, rid, sep='_'))
+  
+  readstodel <- del %>%
+    group_by(urid) %>%
+    tally(name='ndel') %>%
+    filter(ndel>1)
+  cat('\t \t \t \t >>>', nrow(readstodel), 'reads, out of', length(unique(del$urid)), 'reads, have more than one deletion, we will delete them.\n')
+  
+  del <- del %>%
+    filter(! urid %in% readstodel$urid)
+  
+  # now, each read mentioned in del has one deletion, easy
+  # also the case that each read is mentioned only once, check:
+  if(sum(duplicated(del$urid))>0) stop('\t \t \t \t Error ggMHdel: some reads are still mentioned more than once after removing reads with more than one deletion, something is not right!\n')
+  
+  # remove urid column, was not there originally
+  del$urid <- NULL
   
   ### tally, by sample & length of MH (MHbp), number of reads
   mhtal <- del %>%
@@ -41,7 +65,7 @@ ggMHdel <- function(mut,
   # replace NA in MHbp by 0, easier to deal with later
   mhtal[which(is.na(mhtal$MHbp)), 'MHbp'] <- 0
   
-  # same tally but total number of reads with deletion
+  # same tally but total number of reads with a deletion
   deltal <- del %>%
     group_by(sample,
              .drop=FALSE) %>%
@@ -93,8 +117,7 @@ ggMHdel <- function(mut,
     theme(
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
-      # axis.title.y=element_text(size=9, margin=margin(t=0, r=-1, b=0, l=0)),
-      axis.title.y=element_blank(),
+      axis.title.y=element_text(size=9),
       # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0))) +
@@ -108,6 +131,11 @@ ggMHdel <- function(mut,
     {if(!titleOrNo) theme(strip.text.x=element_blank())}
   
   print(ggMhbp)
+  
+  ### report to user which samples got included
+  cat('\t \t \t \t', length(unique(mhtal$sample)), 'samples plotted, including potential simulated sample.\n')
+  cat('\t \t \t \t groups plotted:', unique(mhtal$grp), '\n')
+  
   
   ggsave(exportpath, ggMhbp, width=width, height=height, units='mm')
   
