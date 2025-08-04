@@ -12,6 +12,10 @@
 # v1
 # no more argument cutpos & cutdist, should read from the mut table
 
+# v2
+# simulateIns will add newlyseq & newlyseq_bp columns already
+# if we see that it is filled (not with NA), we should skip that part
+
 # expects mutation table written by callMutations
 library(Biostrings)
 library(dplyr)
@@ -94,6 +98,7 @@ detectTemplatedIns <- function(mut,
   tempIns <- as.data.frame(do.call(rbind, tempInsL))
   
   # fix some column types
+  tempIns$newlyseq_bp <- as.integer(tempIns$newlyseq_bp)
   tempIns$lcbp <- as.integer(tempIns$lcbp)
   tempIns$lcStart <- as.integer(tempIns$lcStart)
   tempIns$lcStop <- as.integer(tempIns$lcStop)
@@ -113,7 +118,7 @@ detectTemplatedIns <- function(mut,
   # then we can join by matching ref & ali
   # this will automatically copy all the new columns when alignment is the same
   mutins <- mutunins %>%
-    dplyr::select(ref, ali, lcbp, lcseq, lcdir, lcStart, lcStop) %>%
+    dplyr::select(ref, ali, newlyseq, newlyseq_bp, lcbp, lcseq, lcdir, lcStart, lcStop) %>%
     left_join(x=mut, y=., by=c('ref', 'ali'))
   
   # one alignment will often have multiple rows, as each row is a mutation
@@ -125,7 +130,7 @@ detectTemplatedIns <- function(mut,
   # so now, wherever not ins, overwrite all NA
   
   mutins[mutins$type %in% c('ref', 'sub', 'del'),
-         c('lcbp', 'lcseq', 'lcdir', 'lcStart', 'lcStop')] <- list(NA, NA, NA, NA, NA)
+         c('newlyseq', 'newlyseq_bp', 'lcbp', 'lcseq', 'lcdir', 'lcStart', 'lcStop')] <- list(NA, NA, NA, NA, NA, NA, NA)
   # so now only rows where type is 'ins' can have a detection of templated insertions
   # (makes more sense)
   
@@ -192,23 +197,197 @@ detectTemplatedIns_one <- function(alrow,
                              allowStretchMatches=allowStretchMatches,
                              extendNewlySeq=extendNewlySeq)
   
-  # if the mutation is too far from the cut position (threshold controlled with cutdist)
-  # newseq returns "MUT_TOO_FAR"
-  # in this case, return NA
-  if(newseq=='MUT_TOO_FAR') {
-    return( c(lcbp=0,
-              lcseq=NA,
-              lcdir=NA,
-              lcStart=NA,
-              lcStop=NA) )
-    # here, returning length of longest common substring (lcbp) as 0
-    # obviously not actually 0 but helps to mark that we did analyse this mutation
-    # but search for templated synthesis was inconclusive
-    # (here because mutation was too far from cut position)
+  # before: was catching flag 'MUT_TOO_FAR' raised by newlySynthesised
+  # will skip for now, we know for sure we are looking at an insertion that is in a reasonable window
+  # >> can get it back from detectTemplatedIns_v1.R
+  
+  ### now prepare searchWindow
+  # and search for LCS
+  # > this is done by searchLCS()
+  # we can directly return its output
+  # will be same named vector as above
+  return( searchLCS(newseq=newseq,
+                    oref=oref,
+                    minLCSbp=minLCSbp,
+                    searchWindowStarts=searchWindowStarts,
+                    cutpos=cutpos) )
+  
+}
+
+
+
+# newlySynthesised --------------------------------------------------------
+
+# refsp = aligned reference, split
+# alisp = aligned read, split
+# cutpos_aref = cut position on aligned reference
+# cutdist
+# allowStretchMatches
+# extendNewlySeq
+
+newlySynthesised <- function(refsp,
+                             alisp,
+                             cutpos_aref,
+                             cutdist,
+                             allowStretchMatches,
+                             extendNewlySeq) {
+  
+  # walk through the alignment and compare each position
+  seqcompare <- sapply(1:length(refsp), function(pos) {
+    return(refsp[pos]==alisp[pos])
+  })
+  # series of TRUE & FALSE
+  # TRUE if the sequences match at this position
+  # FALSE if they do not
+  
+  # which are the modified positions?
+  # any FALSE, so this can be mismatch, insertion, or deletion
+  modpos <- which(!seqcompare)
+  
+  # before, was setting mutseed as modified nucleotide which was closest to the cut
+  # was working OK most of the time but in some cases
+  # where the read would (for example) have one deletion at the cut site + one insertion at the rha position
+  # it would entirely miss the insertion, and only take the deletion
+  # while the function is meant to study insertions
+  
+  # v04/08/2025: best to center ourselves on the insertion, rather than caring about the cut position
+  # take all the insertion positions; these are hyphens in reference
+  inspos <- which(refsp=='-')
+  # are there multiple insertions? This would be breaks in the sequence
+  # below taken from recordIns in allelesToMutations.R
+  inspos_i <- c(1, (which(diff(inspos)!=1)+1))
+  # list of insertion positions, one element per continuous insertion
+  inspos_s <- splitAt(inspos, inspos_i)
+  # take the longest insertion, this is the one we will focus on
+  inslens <- unlist(lapply(inspos_s, length))
+  inspos <- inspos_s[[which.max(inslens)]]
+  # now take the middle position of this insertion
+  # this is the new mutseed
+  mutseed <- median(inspos)
+  
+  # if the seed is far from the cut & from the rha position
+  # it is suspicious, we should probably let it go as it is unlikely to be a Cas9-generated mutation
+  # before: was also filtering here to make sure we do not take a mutseed that is far from the cut position
+  # I think will delete, we know we are looking at reads with an insertion that is in a reasonable window
+  # >> can get it back from detectTemplatedIns_v1.R
+  
+  # now we will try to extend the newly synthesised sequence in either directions
+  # general logic is: if it continues being mismatches (could be insertion or substitution), it is probably part of the newly synthesised sequence
+  # but we could get "lucky matches", which are positions where the newly synthesised sequence matches the original sequence,
+  # even though the newly synthesised sequence was untemplated or copied from a region elsewhere
+  # so we should not stop as soon as we have a single match
+  # we allow a few matches; "a few" being allowStretchMatches
+  
+  ### extend LEFTward the furthest we can
+  # we start at seed position
+  leftmostMod <- mutseed
+  extend <- TRUE
+  # and try to extend more to the left
+  # for each new position to the left, we look a few nucleotides ahead
+  # if any modified nucleotide ahead, we continue extending
+  while(extend) {
+    # below: counting number of mismatches (cf. sum of !) from here to 5 nucleotides ahead
+    # 5 is allowStretchMatches
+    # e.g. if were allowing 0 match (i.e. we say "newly synthesised sequence cannot have any match with original sequence"),
+    # then we would have to look at next position each time
+    # if it matches, we would stop at the current position and call it "start of newly synthesised sequence"
+    
+    # more generally, whenever number of mismatches is 0 in the few nucleotides ahead, we are done
+    # i.e. we found the start of the newly synthesised sequence
+    # look between position just before leftmost modified nucleotide
+    # and 'allowStretchMatches' after (to the left)
+    # are there any modified nucleotides in that window?
+    # e.g. leftmostMod is #81
+    # we look at nucleotides #76, #77, #78, #79, #80
+    if(sum(!seqcompare[ (leftmostMod-1-allowStretchMatches+1) : (leftmostMod-1) ]) > 0) {
+      # if there are one or more mismatches, we extend more to the left
+      leftmostMod <- leftmostMod - 1
+      
+    } else {
+      # no more mismatches ahead!
+      # so we stop extending
+      extend <- FALSE
+    }
   }
   
+  
+  ### extend RIGHTward the furthest we can
+  # we start at seed position
+  rightmostMod <- mutseed
+  extend <- TRUE
+  # and try to extend more to the right
+  # for each new position to the right, we look  a few nucleotides ahead
+  # if any modified nucleotide ahead, we continue extending
+  while(extend) {
+    # below: counting number of mismatches (cf. sum of !) from here to 5 nucleotides ahead
+    # 5 is allowStretchMatches
+    # e.g. if were allowing 0 match (i.e. we say "newly synthesised sequence cannot have any match with original sequence"),
+    # then we would have to look at next position each time
+    # if it matches, we would stop at the current position and call it "end of newly synthesised sequence"
+    
+    # more generally, whenever number of mismatches is 0 in the few nucleotides ahead, we are done
+    # i.e. we found the end of the newly synthesised sequence
+    # e.g. rightmostMod is #81
+    # we look at nucleotides #86, #85, #84, #83, #82
+    if(sum(!seqcompare[ (rightmostMod+1+allowStretchMatches-1) : (rightmostMod+1) ]) > 0) {
+      # if there are one or more mismatches, we extend more
+      rightmostMod <- rightmostMod + 1
+      
+    } else {
+      # no more mismatches ahead!
+      # so we stop extending
+      extend <- FALSE
+    }
+  }
+  
+  # we now have first (left-most) mismatch and last (right-most) mismatch
+  # guaranteed not to have other mismatches nearby (a bit before left-most or a bit after right-most)
+  # precisely: there are no mismatches in the 'allowStretchMatches' nt before left-most
+  # and there are no mismatches in the 'allowStretchMatches' nt after right-most
+  
+  # we can still extend them a little to allow "lucky matches" at the edges
+  # i.e. nucleotides which were actually newly synthesised during repair but just happen to match original sequence
+  # if "lucky matches" were random (should be approx. correct I think?),
+  # probability of one should be 1/4, followed by another one is 1/4 * 1/4, etc
+  # so probability that we are correct to extend by 2 nt is 6%
+  # probability that we are correct to extend by 3 nt is 1.5%
+  # (correct meaning the extra nucleotides we take were indeed newly synthesised during repair)
+  # I think 3 nt extra on either side is reasonable
+  # but will leave it flexible with extendNewlySeq
+  
+  # we can now finally extract our "newly synthesised sequence"
+  newsp <- alisp[ (leftmostMod - extendNewlySeq) : (rightmostMod + extendNewlySeq) ]
+  newseq <- paste0(newsp, collapse='')
+  # the newseq may include hyphens
+  # I think we can leave them in
+  # I do not really see an alternative
+  # if we remove the hyphens, we would create a sequence that was not actually observed
+  # e.g. ACC-----ATG, we would make ACCATG, but we did not observe this as newly synthesised sequence
+  
+  cat('\t \t \t \t >>> newly synthesised sequence:', newseq, '\n')
+  
+  return(newseq)
+  
+}
+
+
+
+# searchLCS ---------------------------------------------------------------
+
+### moving some steps from detectTemplatedIns_one into function searchLCS
+# so we can use it in simulateIns
+
+searchLCS <- function(newseq,
+                      oref,
+                      minLCSbp,
+                      searchWindowStarts,
+                      cutpos) {
+  
+  # resumes from detectTemplatedIns_one
+  # assumes we now have the newseq
+  
   ### step2: get the search window
-  # i.e. window of the reference sequence that we think could have been template for the newly synthesised sequence (will say newseq)
+  # i.e. window of the reference sequence that we think could have been templated for the newly synthesised sequence (will say newseq)
   # setting searchWindowStarts is the distance from cut we start the search window at
   # we will then add the length of the newly synthesised sequence
   # from looking at a few slc45a2 insertions: of nucleotides that served as template, closest is 1--9 bp from cut
@@ -221,6 +400,9 @@ detectTemplatedIns_one <- function(alrow,
   
   # so, for search window, we go from cut up to + searchWindowStarts + length of newly synthesised sequence
   # in both ways (leftward & rightward)
+  
+  # note: it is correct to use cutpos here and not cutpos_aref
+  # because we get searchWindow from the overall sequence, not the aligned sequence
   
   # search window:
   # start = cutpos - searchWindowStarts - length of newly synthesised sequence
@@ -289,8 +471,11 @@ detectTemplatedIns_one <- function(alrow,
   # below a certain length could be just chance, and not templated synthesis from flanking sequences
   # so we want to report only if it is above a certain length, controlled by minLCSbp
   if(nchar(lcseq) < minLCSbp) {
-    cat('\t \t \t \t common substring is only', nchar(lcseq), 'bp long, which is below minLCSbp threshold, returning 0 for lcbp & NA for the rest.\n')
-    return( c(lcbp=0,
+    cat('\t \t \t \t common substring is only', nchar(lcseq),
+        'bp long, which is below minLCSbp threshold, returning 0 for lcbp & NA for the rest.\n')
+    return( c(newlyseq=newseq,
+              newlyseq_bp=nchar(newseq),
+              lcbp=0,
               lcseq=NA,
               lcdir=NA,
               lcStart=NA,
@@ -322,160 +507,20 @@ detectTemplatedIns_one <- function(alrow,
          lcseq, ' but the positions in the reference sequence do not give the same substring (sequence); they give ', substr(oref, lcStart, lcStop))
   
   # we are ready to return
+  # we returned a named vector
   # lcseq: longest common substring (sequence);
   # string is always find in aligned read in forward direction (left to right)
   # but may need to be flipped to be found in reference
   # lcdir: fw if lcseq is found as it is in reference sequence; rv if lcseq has to be reversed to be found in reference sequence
   # lcStart & lcStop: positions in *original* reference sequence which give the longest common substring;
   # stop will always be after start but start:stop in reference may give the longest common substring in reverse, if lcdir is "rv"
-  return(c(lcbp=nchar(lcseq),
+  return(c(newlyseq=newseq,
+           newlyseq_bp=nchar(newseq),
+           lcbp=nchar(lcseq),
            lcseq=lcseq,
            lcdir=lcdir,
            lcStart=lcStart,
            lcStop=lcStop))
-  
-}
-
-
-
-# newlySynthesised --------------------------------------------------------
-
-# refsp = aligned reference, split
-# alisp = aligned read, split
-# cutpos_aref = cut position on aligned reference
-# cutdist
-# allowStretchMatches
-# extendNewlySeq
-
-newlySynthesised <- function(refsp,
-                             alisp,
-                             cutpos_aref,
-                             cutdist,
-                             allowStretchMatches,
-                             extendNewlySeq) {
-  
-  # walk through the alignment and compare each position
-  seqcompare <- sapply(1:length(refsp), function(pos) {
-    return(refsp[pos]==alisp[pos])
-  })
-  # series of TRUE & FALSE
-  # TRUE if the sequences match at this position
-  # FALSE if they do not
-  
-  # which are the modified positions?
-  # any FALSE, so this can be mismatch, insertion, or deletion
-  modpos <- which(!seqcompare)
-  
-  # use modified position that is closest to the cut position as 'seed'
-  dist_fromcut <- modpos-cutpos_aref # gives distance from cut; signed so negative means before (left) / positive means after (right)
-  mutseed <- cutpos_aref + dist_fromcut[which.min(abs(dist_fromcut))]
-  # we have position (in alignment) of the modified nucleotide that is closest to the cut
-  
-  # if modified nucleotide that is closest to the cut
-  # is in fact quite far from the cut position
-  # we should let it go, as it is unlikely to be a Cas9-generated mutation
-  
-  # below: abs difference gives distance between mutseed and cut
-  if( abs(mutseed-cutpos_aref) > cutdist ) {
-    print(mutseed)
-    print(cutdist)
-    cat('\t \t \t \t mutation seed is returning 0 for lcbp & NA for the rest.\n')
-    return('MUT_TOO_FAR')
-    # then in detectTemplatedIns_one
-    # we will understand what this means
-  }
-  
-  # now we will try to extend the newly synthesised sequence in either directions
-  # general logic is: if it continues being mismatches (could be insertion or substitution), it is probably part of the newly synthesised sequence
-  # but we could get "lucky matches", which are positions where the newly synthesised sequence matches the original sequence,
-  # even though the newly synthesised sequence was untemplated or copied from a region elsewhere
-  # so we should not stop as soon as we have a single match
-  # we allow a few matches; "a few" being allowStretchMatches
-  
-  ### extend LEFTward the furthest we can
-  # we start at seed position
-  leftmostMod <- mutseed
-  extend <- TRUE
-  # and try to extend more to the left
-  # for each new position to the left, we look a few nucleotides ahead
-  # if any modified nucleotide ahead, we continue extending
-  while(extend) {
-    # below: counting number of mismatches (cf. sum of !) from here to 5 nucleotides ahead
-    # 5 is allowStretchMatches
-    # e.g. if were allowing 0 match (i.e. we say "newly synthesised sequence cannot have any match with original sequence"),
-    # then we would have to look at next position each time
-    # if it matches, we would stop at the current position and call it "start of newly synthesised sequence"
-    
-    # more generally, whenever number of mismatches is 0 in the few nucleotides ahead, we are done
-    # i.e. we found the start of the newly synthesised sequence
-    if(sum(!seqcompare[(leftmostMod - allowStretchMatches) : leftmostMod]) > 0) {
-      # if there are one or more mismatches, we extend more
-      leftmostMod <- leftmostMod - 1
-      
-    } else {
-      # no more mismatches ahead!
-      # so we stop extending
-      extend <- FALSE
-      # precisely, we should stop at the nucleotide before the one we are trying now
-      leftmostMod <- leftmostMod + 1
-    }
-  }
-  
-  
-  ### extend RIGHTward the furthest we can
-  # we start at seed position
-  rightmostMod <- mutseed
-  extend <- TRUE
-  # and try to extend more to the right
-  # for each new position to the right, we look  a few nucleotides ahead
-  # if any modified nucleotide ahead, we continue extending
-  while(extend) {
-    # below: counting number of mismatches (cf. sum of !) from here to 5 nucleotides ahead
-    # 5 is allowStretchMatches
-    # e.g. if were allowing 0 match (i.e. we say "newly synthesised sequence cannot have any match with original sequence"),
-    # then we would have to look at next position each time
-    # if it matches, we would stop at the current position and call it "end of newly synthesised sequence"
-    
-    # more generally, whenever number of mismatches is 0 in the few nucleotides ahead, we are done
-    # i.e. we found the end of the newly synthesised sequence
-    if(sum(!seqcompare[(rightmostMod + allowStretchMatches) : rightmostMod]) > 0) {
-      # if there are one or more mismatches, we extend more
-      rightmostMod <- rightmostMod + 1
-      
-    } else {
-      # no more mismatches ahead!
-      # so we stop extending
-      extend <- FALSE
-      # precisely, we should stop at the nucleotide before the one we are trying now
-      rightmostMod <- rightmostMod - 1
-    }
-  }
-  
-  # we now have first (left-most) mismatch and last (right-most) mismatch
-  # guaranteed not to have other mismatches nearby (a bit before left-most or a bit after right-most)
-  # precisely: there are no mismatches in the 'allowStretchMatches' nt before left-most
-  # and there are no mismatches in the 'allowStretchMatches' nt after right-most
-  
-  # we can still extend them a little to allow "lucky matches" at the edges
-  # i.e. nucleotides which were actually newly synthesised during repair but just happen to match original sequence
-  # if "lucky matches" were random (should be approx. correct I think?),
-  # probability of one should be 1/4, followed by another one is 1/4 * 1/4, etc
-  # so probability that we are correct to extend by 2 nt is 6%
-  # probability that we are correct to extend by 3 nt is 1.5%
-  # (correct meaning the extra nucleotides we take were indeed newly synthesised during repair)
-  # I think 3 nt extra on either side is reasonable
-  # but will leave it flexible with extendNewlySeq
-  
-  # we can now finally extract our "newly synthesised sequence"
-  newsp <- alisp[ (leftmostMod - extendNewlySeq) : (rightmostMod + extendNewlySeq) ]
-  newseq <- paste0(newsp, collapse='')
-  # note this newseq could include hyphens
-  # we can leave them in
-  
-  cat('\t \t \t \t >>> newly synthesised sequence:', newseq, '\n')
-  
-  return(newseq)
-  
 }
 
 

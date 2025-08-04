@@ -136,7 +136,8 @@ ggMHdel <- function(mut,
   cat('\t \t \t \t', length(unique(mhtal$sample)), 'samples plotted, including potential simulated sample.\n')
   cat('\t \t \t \t groups plotted:', unique(mhtal$grp), '\n')
   
-  
   ggsave(exportpath, ggMhbp, width=width, height=height, units='mm')
+  
+  return(mhtal)
   
 }

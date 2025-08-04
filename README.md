@@ -477,3 +477,6 @@ More precise detection of scaffold incorporation in `preciseClassify_one`.
 
 * v7  
 Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 233 samples). See fitDelLengths_notes.R for details about fitting the log-normal distribution. The parameters of the distribution are now set as defaults in `simulateDel`.
+
+* v8
+New function `simulateIns` to simulate newly synthesised sequences, also detects longest common substring with sequences flanking the cut (like `detectTemplatedIns`). Goal is to provide an estimate of matches expected from chance.
