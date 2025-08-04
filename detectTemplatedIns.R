@@ -76,16 +76,9 @@ detectTemplatedIns <- function(mut,
     # alrow is alignment row
     alrow <- mutuni[rowi,]
     
-    # we should also obtain cutpos & cutdist from that row of mut
-    # check
-    if(!'cutpos' %in% names(alrow)) stop('\t \t \t \t >>> Error detectTemplatedIns: cutpos seems to be absent from the mut table?\n')
-    if(!'cutdist' %in% names(alrow)) stop('\t \t \t \t >>> Error detectTemplatedIns: cutdist seems to be absent from the mut table?\n')
-    
     # detectTemplatedIns_one simply returns LCS (Longest Common Sub-string/sequence)
     # i.e. just a string
     detectedLCS <- detectTemplatedIns_one(alrow=alrow,
-                                          cutpos=alrow$cutpos,
-                                          cutdist=alrow$cutdist,
                                           minLCSbp=minLCSbp,
                                           allowStretchMatches=allowStretchMatches,
                                           extendNewlySeq=extendNewlySeq,
@@ -144,8 +137,6 @@ detectTemplatedIns <- function(mut,
 # detection of templated insertion on one 'insertion' row of mut
 
 detectTemplatedIns_one <- function(alrow,
-                                   cutpos,
-                                   cutdist,
                                    minLCSbp,
                                    allowStretchMatches,
                                    extendNewlySeq,
@@ -162,41 +153,18 @@ detectTemplatedIns_one <- function(alrow,
   if(!is.character(oref))
     stop('\t \t \t \t >>> Error detectTemplatedIns_one: issue when computing overall reference sequence.\n')
   
-  # split reference & aligned sequences
-  refsp <- strsplit(alrow$ref, '')[[1]]
-  alisp <- strsplit(alrow$ali, '')[[1]]
-  # check they are the same length
-  if(length(refsp) != length(alisp))
-    stop('\t \t \t \t >>> Error detectTemplatedIns_one: something unexpected about the alignment; length of reference sequence is the not the same as the length of the aligned sequence.\n')
-  
   ### step1: get the newly synthesised sequence
   # insertion is often part of a longer newly-synthesised sequence
   # which appears as substitutions - insertion
   # or insertion - substitutions
   
-  # ! pitfall: if e.g. there is a sequencing error 100 bp from the cut, we risk taking this as part of the newly synthesised sequence
-  # we need to limit ourselves to some region around the cut, this is why we ask the user for cutpos & cutdist
-  # current 'cutpos' given by the user is on original reference used for alignment,
-  # but we will need cut position on aligned reference
-  # (position may be shifted due to insertions which appear as --- in aligned reference)
-  # small function cutpos_aligned converts cutpos (on original reference) to cutpos on aligned reference
-  cutpos_aref <- cutpos_aligned(cutpos=cutpos,
-                                refsp=refsp)
-  
-  # previously, was approaching as: take position of modified nucleotide most to the left - up to - position of modified nucleotide most to the right
-  # but does not work well because positions always refer to reference used for alignment (without any -) so does not give directly the newly synthesised sequence
-  # better to go back to the alignment and look at first modified nucleotide / last modified nucleotide
-  
   # finding the most likely "newly synthesised sequence" is the job of function newlySynthesised
   # newly synthesised sequence is a substring (sequence) of the aligned read
   # essentially from the first mismatch to the last mismatch (but there are a bit more details to it)
-  newseq <- newlySynthesised(refsp=refsp,
-                             alisp=alisp,
-                             cutpos_aref=cutpos_aref,
-                             cutdist=cutdist,
-                             allowStretchMatches=allowStretchMatches,
-                             extendNewlySeq=extendNewlySeq)
-  
+  newlyseqInfo <- newlySynthesised(alrow=alrow,
+                                   allowStretchMatches=allowStretchMatches,
+                                   extendNewlySeq=extendNewlySeq)
+
   # before: was catching flag 'MUT_TOO_FAR' raised by newlySynthesised
   # will skip for now, we know for sure we are looking at an insertion that is in a reasonable window
   # >> can get it back from detectTemplatedIns_v1.R
@@ -206,11 +174,13 @@ detectTemplatedIns_one <- function(alrow,
   # > this is done by searchLCS()
   # we can directly return its output
   # will be same named vector as above
-  return( searchLCS(newseq=newseq,
+  return( searchLCS(alrow=alrow,
+                    newlyseq=as.character(newlyseqInfo['newlyseq']),
+                    newlyseqStart=as.integer(newlyseqInfo['newlyseqStart']),
+                    newlyseqStop=as.integer(newlyseqInfo['newlyseqStop']),
                     oref=oref,
                     minLCSbp=minLCSbp,
-                    searchWindowStarts=searchWindowStarts,
-                    cutpos=cutpos) )
+                    searchWindowStarts=searchWindowStarts) )
   
 }
 
@@ -225,12 +195,16 @@ detectTemplatedIns_one <- function(alrow,
 # allowStretchMatches
 # extendNewlySeq
 
-newlySynthesised <- function(refsp,
-                             alisp,
-                             cutpos_aref,
-                             cutdist,
+newlySynthesised <- function(alrow,
                              allowStretchMatches,
                              extendNewlySeq) {
+  
+  ### split reference & aligned sequences
+  refsp <- strsplit(alrow$ref, '')[[1]]
+  alisp <- strsplit(alrow$ali, '')[[1]]
+  # check they are the same length
+  if(length(refsp) != length(alisp))
+    stop('\t \t \t \t >>> Error detectTemplatedIns_one: something unexpected about the alignment; length of reference sequence is the not the same as the length of the aligned sequence.\n')
   
   # walk through the alignment and compare each position
   seqcompare <- sapply(1:length(refsp), function(pos) {
@@ -253,17 +227,32 @@ newlySynthesised <- function(refsp,
   # v04/08/2025: best to center ourselves on the insertion, rather than caring about the cut position
   # take all the insertion positions; these are hyphens in reference
   inspos <- which(refsp=='-')
-  # are there multiple insertions? This would be breaks in the sequence
+  # are there multiple insertions? they would show up as breaks in the sequence
   # below taken from recordIns in allelesToMutations.R
   inspos_i <- c(1, (which(diff(inspos)!=1)+1))
   # list of insertion positions, one element per continuous insertion
   inspos_s <- splitAt(inspos, inspos_i)
-  # take the longest insertion, this is the one we will focus on
-  inslens <- unlist(lapply(inspos_s, length))
-  inspos <- inspos_s[[which.max(inslens)]]
+  
+  # choose the insertion that was in mut
+  # because we know that this insertion passed the filters, so is probably the one we want to focus on
+  # get the position of this insertion
+  # ! position is currently on overall reference, convert it to the aligned reference
+  # we can use function pos_original2aligned
+  focuspos <- pos_original2aligned(pos_ori=alrow$start,
+                                   refsp=refsp)
+  # which insertion from the list above includes this "focus" position?
+  # take that insertion's positions
+  posSelect <- which( unlist(lapply(inspos_s, function(oneins) {
+    focuspos %in% oneins })) )
+  inspos <- inspos_s[[posSelect]]
+  
   # now take the middle position of this insertion
   # this is the new mutseed
-  mutseed <- median(inspos)
+  mutseed <- round( median(inspos) )
+  # ! median on integers can give .5
+  # here, round will arbitrarily take position on the left or the right
+  # I think R rounds down if first digit is even / rounds up if first digit is odd
+  # i.e. rounds to the closest even number
   
   # if the seed is far from the cut & from the rha position
   # it is suspicious, we should probably let it go as it is unlikely to be a Cas9-generated mutation
@@ -356,17 +345,28 @@ newlySynthesised <- function(refsp,
   # but will leave it flexible with extendNewlySeq
   
   # we can now finally extract our "newly synthesised sequence"
-  newsp <- alisp[ (leftmostMod - extendNewlySeq) : (rightmostMod + extendNewlySeq) ]
-  newseq <- paste0(newsp, collapse='')
-  # the newseq may include hyphens
+  # this is its start position on the aligned read
+  newlyseqStart <- leftmostMod - extendNewlySeq
+  newlyseqStop <- rightmostMod + extendNewlySeq
+  
+  newlysp <- alisp[ newlyseqStart : newlyseqStop ]
+  newlyseq <- paste0(newlysp, collapse='')
+  # the newlyseq may include hyphens
   # I think we can leave them in
   # I do not really see an alternative
   # if we remove the hyphens, we would create a sequence that was not actually observed
   # e.g. ACC-----ATG, we would make ACCATG, but we did not observe this as newly synthesised sequence
+  # and searching twice for ACC, then for ATG, should give the same output as searching for the LCS for the sequence directly
+  # only issue may be if we output an LCS as e.g. ACC--, which does not make much sense
+  # but I think is unlikely
   
-  cat('\t \t \t \t >>> newly synthesised sequence:', newseq, '\n')
+  cat('\t \t \t \t >>> newly synthesised sequence:', newlyseq, '\n')
   
-  return(newseq)
+  # return a small vector: newlyseq, its start, its stop
+  # ! positions on alignment
+  return(c(newlyseq=newlyseq,
+           newlyseqStart=newlyseqStart,
+           newlyseqStop=newlyseqStop))
   
 }
 
@@ -377,39 +377,58 @@ newlySynthesised <- function(refsp,
 ### moving some steps from detectTemplatedIns_one into function searchLCS
 # so we can use it in simulateIns
 
-searchLCS <- function(newseq,
+searchLCS <- function(alrow,
+                      newlyseq,
+                      newlyseqStart,
+                      newlyseqStop,
                       oref,
                       minLCSbp,
                       searchWindowStarts,
-                      cutpos) {
+                      cutpos=NA) {
   
   # resumes from detectTemplatedIns_one
-  # assumes we now have the newseq
+  # assumes we now have the newlyseq
   
   ### step2: get the search window
-  # i.e. window of the reference sequence that we think could have been templated for the newly synthesised sequence (will say newseq)
-  # setting searchWindowStarts is the distance from cut we start the search window at
+  # i.e. window of the reference sequence that we think could have been templated for the newly synthesised sequence (will say newlyseq)
+  # setting searchWindowStarts is the distance from the insertion centre we start the search window at
   # we will then add the length of the newly synthesised sequence
-  # from looking at a few slc45a2 insertions: of nucleotides that served as template, closest is 1--9 bp from cut
-  # so 20 bp is probably a good start
+  # from looking at a few slc45a2 insertions, 20 bp is probably a good start for searchWindowStarts
   # precise definition of searchWindowStarts:
-  # of all the nucleotides that could have been a template for the newly synthesised sequence, how far (from the cut) do we allow the closest one to be
+  # of all the nucleotides that could have been a template for the newly synthesised sequence, how far (from the centre of the insertion) do we allow the closest one to be
   # "when searching for the template, how far should we look"
   # "closest one", i.e. do not worry about accounting for the length of the insertion/newly synthesised sequence
-  # e.g. if 10 bp, it means that we do not consider a potential template that is found at 11 bp (or further) from the cut
+  # e.g. if 10 bp, it means that we do not consider a potential template that is found at 11 bp (or further) from the centre of the insertion
   
-  # so, for search window, we go from cut up to + searchWindowStarts + length of newly synthesised sequence
+  # ! if we are not given alrow, newlyseqStart, newlyStop
+  # it means this is ran by simulateIns
+  # where we do not actually have a full alignment
+  # in this case, just center the search window on the cut position (on original reference)
+  if(is.na(alrow[1]) & is.na(newlyseqStart) & is.na(newlyseqStop)) {
+    # check we are given cutpos
+    if(is.na(cutpos)) stop('\t \t \t \t >>> Error searchLCS: if alrow, newlyseqStart, newlyseqStop are NA, we should be given cutpos.\n')
+    seedpos <- cutpos
+    
+  } else {
+    # first, what is the centre of the search window?
+    # this is the centre of the newly synthesised sequence
+    seedpos_aref <- round( median(c(newlyseqStart, newlyseqStop)) ) # seed for the searchWindow, on the aligned reference
+    # ! median on integers can give .5
+    # here, round will arbitrarily take position on the left or the right
+    # I think R rounds down if first digit is even / rounds up if first digit is odd
+    # i.e. rounds to the closest even number
+    
+    # convert it to positions on overall reference sequence
+    # because we want to get searchWindow from the original reference sequence, not the aligned one
+    seedpos <- fixpos(ref=alrow$ref,
+                      pos=seedpos_aref)
+  }
+  
+  # for search window, we go from seed up to + searchWindowStarts + length of newly synthesised sequence
   # in both ways (leftward & rightward)
-  
-  # note: it is correct to use cutpos here and not cutpos_aref
-  # because we get searchWindow from the overall sequence, not the aligned sequence
-  
-  # search window:
-  # start = cutpos - searchWindowStarts - length of newly synthesised sequence
-  searchStart <- cutpos - (searchWindowStarts + nchar(newseq) - 1)
-  # here minus 1, to be fully precise, we should account for the fact that cutpos is nucleotide before the cut
-  # so without minus 1 we would take one nucleotide extra
-  # and window would not be symmetrical (not same number of bp on either side of cut position)
+  searchStart <- seedpos - (searchWindowStarts + nchar(newlyseq))
+  # e.g. seedpos is #50 and searchWindowStarts is 20 (ignore length of newlyseq, assume 0)
+  # we would like search window to start at #30
   
   # ! if below 1, edit to 1
   if(searchStart < 1) {
@@ -417,8 +436,15 @@ searchLCS <- function(newseq,
     searchStart <- 1
   }
   
-  # stop = cutpos + searchWindowStarts + length of newly synthesised sequence
-  searchStop <- cutpos + searchWindowStarts + nchar(newseq)
+  # stop = seedpos + searchWindowStarts + length of newly synthesised sequence
+  searchStop <- seedpos + searchWindowStarts + nchar(newlyseq)
+  # e.g. seedpos is #50 and searchWindowStarts is 20 (ignore length of newlyseq, assume 0)
+  # we would like search window to stop at #70
+  # >> so we have 30-to-70
+  # which is 20 nt -- seedpos -- 20 nt
+  # 41 nucleotides total
+  # i.e. searchWindowStarts will be (if we ignore newlyseq) 2 * searchWindowStarts + 1
+  
   # ! if above length of the reference, edit to length of the reference
   if(searchStop > nchar(oref)) {
     cat('\t \t \t \t >>> End of search window would go past the end of the reference so edited to last position of reference.\n')
@@ -427,7 +453,14 @@ searchLCS <- function(newseq,
   
   # the search window sequence is
   searchSeqFw <- substr(oref, start=searchStart, stop=searchStop)
-  cat('\t \t \t \t >>> Length of search sequence is', nchar(searchSeqFw), 'bp, centered on the cut position.\n')
+  
+  if(is.na(alrow[1])) {
+    cat('\t \t \t \t >>> Length of search sequence is', nchar(searchSeqFw), 'bp, centered on the cut position.\n')
+  } else {
+    cat('\t \t \t \t >>> Length of search sequence is', nchar(searchSeqFw), 'bp, centered on the middle of the newly synthesised sequence.\n')
+  }
+  
+
   cat('\t \t \t \t >>> search window:', searchSeqFw, '\n')
   
   # ! we also want to try search window from right to left
@@ -442,20 +475,26 @@ searchLCS <- function(newseq,
   # I have tried a few options found on SO
   # from Biostrings, pmatchPattern gives good outputs
   # no real explanation of the difference between pattern & subject though
-  # on test sequence, swapping newseq / searchSeq as pattern or subject give different outputs, but both good
+  # on test sequence, swapping newlyseq / searchSeq as pattern or subject give different outputs, but both good
   # will try both and decide later which one we report
   
   # so first searching in Fw sequence, try both options
-  lcs_fw1 <- as.character( pmatchPattern(newseq, searchSeqFw, maxlength.out=1L)[[1]] )
-  lcs_fw2 <- as.character( pmatchPattern(searchSeqFw, newseq, maxlength.out=1L)[[1]] )
+  lcs_fw1 <- as.character( pmatchPattern(newlyseq, searchSeqFw, maxlength.out=1L)[[1]] )
+  lcs_fw2 <- as.character( pmatchPattern(searchSeqFw, newlyseq, maxlength.out=1L)[[1]] )
   
   # second searching in Rv sequence, try both options
-  lcs_rv1 <- as.character( pmatchPattern(newseq, searchSeqRv, maxlength.out=1L)[[1]] )
-  lcs_rv2 <- as.character( pmatchPattern(searchSeqRv, newseq, maxlength.out=1L)[[1]] )
+  lcs_rv1 <- as.character( pmatchPattern(newlyseq, searchSeqRv, maxlength.out=1L)[[1]] )
+  lcs_rv2 <- as.character( pmatchPattern(searchSeqRv, newlyseq, maxlength.out=1L)[[1]] )
   
   # get all the results together
   lcs <- c(lcs_fw1, lcs_fw2, lcs_rv1, lcs_rv2)
   names(lcs) <- c('fw1', 'fw2', 'rv1', 'rv2')
+  
+  # remove any hyphens
+  # I think rare, but best to be safe as does not make sense to include this in LCS
+  lcs <- sapply(lcs, function(onelcs) {
+    return( gsub('-', '', onelcs) )
+  })
   
   # which is the longest?
   maxi <- which.max(nchar(lcs))
@@ -473,8 +512,8 @@ searchLCS <- function(newseq,
   if(nchar(lcseq) < minLCSbp) {
     cat('\t \t \t \t common substring is only', nchar(lcseq),
         'bp long, which is below minLCSbp threshold, returning 0 for lcbp & NA for the rest.\n')
-    return( c(newlyseq=newseq,
-              newlyseq_bp=nchar(newseq),
+    return( c(newlyseq=newlyseq,
+              newlyseq_bp=nchar(newlyseq),
               lcbp=0,
               lcseq=NA,
               lcdir=NA,
@@ -514,8 +553,8 @@ searchLCS <- function(newseq,
   # lcdir: fw if lcseq is found as it is in reference sequence; rv if lcseq has to be reversed to be found in reference sequence
   # lcStart & lcStop: positions in *original* reference sequence which give the longest common substring;
   # stop will always be after start but start:stop in reference may give the longest common substring in reverse, if lcdir is "rv"
-  return(c(newlyseq=newseq,
-           newlyseq_bp=nchar(newseq),
+  return(c(newlyseq=newlyseq,
+           newlyseq_bp=nchar(newlyseq),
            lcbp=nchar(lcseq),
            lcseq=lcseq,
            lcdir=lcdir,
@@ -524,21 +563,24 @@ searchLCS <- function(newseq,
 }
 
 
-# cutpos_aligned ----------------------------------------------------------
+# posref_original2aligned -------------------------------------------------
 
-# small function to calculate cut position on aligned reference
+# small function to convert from a position on the original reference sequence
+# to a position on the aligned reference sequence
 # i.e. account for the --- which mark insertions
 # not as simple as just adding number of ---,
-# need to look at insertions starting before cutpos and add their lengths
+# need to look at insertions starting before position and add their lengths
 
-# cutpos = cut position on original reference sequence
+# pos_ori = position on original reference sequence
 # refsp = aligned reference sequence, split
 
-cutpos_aligned <- function(cutpos,
-                           refsp,
-                           alisp) {
+# note, to do the opposite (i.e. position on aligned reference to position on original reference)
+# we already have function fixpos in allelesToMutations
+
+pos_original2aligned <- function(pos_ori,
+                                 refsp) {
   
-  # we need to add the length of any insertion that starts before that position (cutpos)
+  # we need to add the length of any insertion that starts before that position
   # find all "inserted" positions
   hypos <- which(refsp=='-') # hypos for hyphen positions
   
@@ -556,7 +598,7 @@ cutpos_aligned <- function(cutpos,
   # correction by fixpos will give 89, 89, ..., 89
   # i.e. will mark, on the original reference, the last nucleotide before the insertion
   
-  # ! there could be multiple insertions before cutpos
+  # ! there could be multiple insertions before the position
   # if so, find their boundaries
   # add NA at the start otherwise we get original length minus 1 
   # (which I find confusing to account for later)
@@ -580,12 +622,12 @@ cutpos_aligned <- function(cutpos,
   # 2: 92 92 92
   # 3: 101 101 101
   
-  # we have cutpos & positions of each insertion all on original reference
+  # we have position & positions of each insertion all on original reference
   # now we look at the start position of each insertion
   # if this insertion started before cutpos, we need add the total length of this insertion to cutpos
   toadd <- lapply(ohypos_byins, function(ohyposi) {
-    # about <= cutpos below, instead of < cutpos
-    # example:
+    # about <= pos_ori below, instead of < pos_ori
+    # when pos_ori refers to cutpos, take example
     # agtaaC*ttaNGGacc
     # cut is at *; cutpos points to C (#6)
     # if insertion like so:
@@ -601,7 +643,7 @@ cutpos_aligned <- function(cutpos,
     # no answer will be always correct! will (arbitrarily) assume first case,
     # i.e. we correct cutpos if an insertion starts at that position
     # so <= (instead of <)
-    if(min(ohyposi) <= cutpos) {
+    if(min(ohyposi) <= pos_ori) {
       # if an insertion starts before cutpos, record its length
       return(length(ohyposi))
     } else {
@@ -611,11 +653,11 @@ cutpos_aligned <- function(cutpos,
   })
   # we have, for each insertion, number of positions to add to correct cutpos
   # sum them & add them to cutpos
-  cutpos_aref <- cutpos + sum(unlist(toadd))
-  # we now have cutpos on aligned reference
+  pos_aref <- pos_ori + sum(unlist(toadd))
+  # we now have position on aligned reference
   
   # cat('\t \t \t \t >>> received cutpos =', cutpos, '; converted to cutpos on aligned reference =', cutpos_aref, '\n')
   
-  return(cutpos_aref)
+  return(pos_aref)
   
 }

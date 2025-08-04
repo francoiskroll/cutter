@@ -464,6 +464,8 @@ recordSub <- function(ref,
 # but if there are insertions, aligned reference will get gaps ---, increasing its length bp vs. absolute reference
 # so when we record a position, we should account for this
 # which is simply subtracting the number of gaps (---) in aligned reference found before that position
+
+# here, ref refers to aligned reference, split
 fixpos <- function(ref,
                    pos) {
   # note, works when no gap because it gives integer(0) which is length 0

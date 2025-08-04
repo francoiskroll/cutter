@@ -453,6 +453,55 @@ Currently, `detectTemplatedIns` only returns _the_ longest common substring (seq
 
 There can be multiple substrings that are equally good (long). For example, `detectTemplatedIns` may find two substrings which are both 8 bp. If the two substrings are in opposite directions, it will preferentially return the _forward_ match (i.e. the newly synthesised sequence matching the search window read left-to-right). If the two substrings are in the same direction, it is arbirary which one is returned.
 
+### simulateIns
+
+Simulate random insertions & detects the longest common substring with sequences flanking the cut.  
+
+In contrast to `simulateDel`, we do not simulate entire reads. This would be overly complex here as insertions are often a mix of substitutions and insertions. Rather, we directly simulate newly synthesised sequences at random (25% change of each nucleotide).
+
+`simulateIns` includes detection of longest common substring. The approach is the same as in `detectTemplatedIns`. It simply uses the same function backstage, with a shortcut as we already have the newly synthesised sequence in the case here (we simulated it).
+
+* `mutdti` mutation table, created by `callMutations`, on which `detectTemplatedIns` (dti) was ran already.
+
+* `nreads` number of reads (newly synthesised sequences) to simulate.
+
+* `extendNewlySeq` cf. `detectTemplatedIns` above.
+
+* `searchWindowStarts` cf. `detectTemplatedIns` above.
+
+* `minLCSbp` cf. `detectTemplatedIns` above.
+
+* `fit_exprate` rate parameter of the exponential distribution describing observed newly synthesised sequence lengths after Cas9-mediated double-strand breaks in zebrafish embryos. Default is `fit_exprate=0.06643421`.
+
+### ggTemplIns
+
+Plots a stacked barplot showing, for each sample, proportions of reads with deletion flanked by microhomologies of given lengths. Colours in the stacked barplot represent the length of the microhomology, with darker colours representing longer microhomologies.
+
+* `mut` mutation table, created by `callMutations` then ran through `detectMHdel` (and optionally `simulateDel` before that).
+
+* `min_ins_nreads` minimum number of reads with insertion a sample should have to be included in the plot. Default is 50 (`min_ins_nreads=50`).
+
+* `colourLow` colour for the shortest LCS (which will depend on argument `minLCSbp` used). This should be the lightest colour of the gradient.
+
+* `colourHigh` colour for the longest LCS. This should be the darkest colour of the gradient.
+
+* `grporder` order of the groups, i.e. order of the subplots (facets). `NA` will follow alphabetical order. For example, `grporder=c('Cas9', 'PE2')`.
+
+* `legendOrNo` whether (`TRUE`) or not (`FALSE`) to write the legend. Default is `TRUE`.
+
+* `titleOrNo` whether (`TRUE`) or not (`FALSE`) to write the titles for each group. Default is `TRUE`.
+
+* `xtextOrNo` whether (`TRUE`) or not (`FALSE`) to write the sample names. Default is `TRUE`.
+
+* `ytextOrNo` whether (`TRUE`) or not (`FALSE`) to write the Y axis ticks. Default is `TRUE`.
+
+* `ynameOrNo` whether (`TRUE`) or not (`FALSE`) to write the Y axis name. Default is `TRUE`, which will write "% of reads with deletion".
+
+* `exportpath` full export path. It has to finish by .pdf.
+
+* `width` width of the pdf in mm. Default is 110 (`width=110`).
+
+* `height` height of the pdf in mm. Default is 65 (`height=65`).
 
 
 ### version history
@@ -479,4 +528,5 @@ More precise detection of scaffold incorporation in `preciseClassify_one`.
 Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 233 samples). See fitDelLengths_notes.R for details about fitting the log-normal distribution. The parameters of the distribution are now set as defaults in `simulateDel`.
 
 * v8
-New function `simulateIns` to simulate newly synthesised sequences, also detects longest common substring with sequences flanking the cut (like `detectTemplatedIns`). Goal is to provide an estimate of matches expected from chance.
+    * New function `simulateIns` to simulate newly synthesised sequences, also detects longest common substring with sequences flanking the cut (like `detectTemplatedIns`). Goal is to provide an estimate of matches expected from chance.
+    * New function `ggTemplIns`, similar to `ggMHdel` but fill colour of barplots corresponds to length of longest common substring.

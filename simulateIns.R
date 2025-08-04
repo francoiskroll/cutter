@@ -21,7 +21,7 @@
 
 # ! assumes that mut was already ran through detectTemplatedIns
 
-simulateIns <- function(mut,
+simulateIns <- function(mutdti,
                         nreads=1000,
                         extendNewlySeq=3,
                         searchWindowStarts=20,
@@ -30,11 +30,11 @@ simulateIns <- function(mut,
   
   # ! can only simulate a sample for *one* locus
   # check that we only have one locus
-  if(length(unique(mut$locus))>1) stop('\t \t \t \t Error simulateIns: can only simulate a sample for *one* locus at a time.\n')
+  if(length(unique(mutdti$locus))>1) stop('\t \t \t \t Error simulateIns: can only simulate a sample for *one* locus at a time.\n')
   
   ### get overall reference sequence
   # we simply remove the - hyphens
-  orefs <- gsub('-', '', mut$ref)
+  orefs <- gsub('-', '', mutdti$ref)
   
   # check that all the same
   oref <- unique(orefs)
@@ -43,7 +43,7 @@ simulateIns <- function(mut,
     stop('\t \t \t \t >>> Error simulateIns: more than one reference sequence in this mutation table.\n')
   
   # get cutpos
-  cutpos <- unique(mut$cutpos)
+  cutpos <- unique(mutdti$cutpos)
   # check only one
   if(length(cutpos)>1)
     stop('\t \t \t \t >>> Error simulateIns: more than one cutpos in this mutation table.\n')
@@ -52,8 +52,7 @@ simulateIns <- function(mut,
   # step below is surprisingly slow...
   siminsL <- lapply(1:nreads, function(i) {
     cat('\t \t \t \t simulating newly synthesised sequence', i, 'of', nreads, '\n')
-    simulateIns_one(mut=mut,
-                    extendNewlySeq=extendNewlySeq,
+    simulateIns_one(extendNewlySeq=extendNewlySeq,
                     searchWindowStarts=searchWindowStarts,
                     minLCSbp=minLCSbp,
                     cutpos=cutpos,
@@ -96,7 +95,7 @@ simulateIns <- function(mut,
   ### add last columns as NA
   # find the ones we are missing from mut
   # these were added from meta
-  cols2add <- colnames(mut) [! colnames(mut) %in% colnames(simins)]
+  cols2add <- colnames(mutdti) [! colnames(mutdti) %in% colnames(simins)]
   
   for(colnm in cols2add) {
     simins <- simins %>%
@@ -112,17 +111,17 @@ simulateIns <- function(mut,
   # first put the columns of simins in the same order as in mut
   
   # check columns are identical (before looking at their positions)
-  if(!identical( sort(colnames(mut)) , sort(colnames(simins))))
+  if(!identical( sort(colnames(mutdti)) , sort(colnames(simins))))
     stop('\t \t \t \t >>> Error simulateIns: all columns of mut are not in simins, or vice-versa.\n')
   
   # now put the columns of simins in the same order
-  simins <- simins[, colnames(mut) ]
+  simins <- simins[, colnames(mutdti) ]
   # check correct
-  if(!identical(colnames(mut), colnames(simins)))
+  if(!identical(colnames(mutdti), colnames(simins)))
     stop('\t \t \t \t >>> Error simulateIns: columns of simins are not in the same order as columns of mut.\n')
   
   # can now rbind
-  mutsim <- rbind(mut, simins)
+  mutsim <- rbind(mutdti, simins)
   # and we return result
   return(mutsim)
   
@@ -135,8 +134,7 @@ simulateIns <- function(mut,
 
 # simulateIns_one ---------------------------------------------------------
 
-simulateIns_one <- function(mut,
-                            extendNewlySeq,
+simulateIns_one <- function(extendNewlySeq,
                             searchWindowStarts,
                             minLCSbp,
                             cutpos,
@@ -195,7 +193,11 @@ simulateIns_one <- function(mut,
   ### now run searchLCS() from detectTemplatedIns.R
   # will prepare searchWindow and look for LCS
   # we can return directly its output
-  return( searchLCS(newseq=newlyseq_sim,
+  
+  return( searchLCS(alrow=NA,
+                    newlyseq=newlyseq_sim,
+                    newlyseqStart=NA, 
+                    newlyseqStop=NA,
                     oref=oref,
                     minLCSbp=minLCSbp,
                     searchWindowStarts=searchWindowStarts,
