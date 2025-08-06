@@ -141,16 +141,18 @@ ggTemplIns <- function(mut,
     scale_fill_manual(values=fillCols) +
     theme_minimal() +
     theme(
-      strip.text=element_blank(),
-      #legend.position='none',
-      legend.title=element_blank(),
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
-      # axis.title.y=element_text(size=9, margin=margin(t=0, r=-1, b=0, l=0)),
-      axis.title.y=element_blank(),
-      # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
-      axis.text.x=element_blank(),
-      axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0)))
+      axis.title.y=element_text(size=9),
+      axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
+      axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0))) +
+    {if(!legendOrNo) theme(legend.position='none')} +
+    {if(ynameOrNo) ylab('% of reads with insertion')} +
+    {if(!ynameOrNo) ylab('')} +
+    
+    {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
+    {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
+    {if(!titleOrNo) theme(strip.text.x=element_blank())}
   
   print(ggInsbp)
   

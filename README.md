@@ -375,6 +375,8 @@ Plots a stacked barplot showing, for each sample, proportions of reads with dele
 
 ### detectTemplatedIns
 
+> TODO for detectTemplatedIns & below, some changes. Usually centre detection on the insertion, not the cut. An advantage is works better for rha insertions.
+
 Detects whether insertions were templated from sequences flanking the cut.
 
 We talk here of "templated insertions" but an insertion is frequently followed or preceded by substitutions. This is not a coincidence but rather reflects the DNA synthesis that occured during repair (typically TMEJ). Therefore, the insertion is better analysed by taking the entire "newly synthesised sequence" into account, not just the inserted sequence.
