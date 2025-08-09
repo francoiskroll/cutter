@@ -121,6 +121,8 @@ ggMHdel <- function(mut,
       # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0))) +
+    scale_y_continuous(breaks=c(0, 0.25, 0.5, 0.75, 1.0),
+                       labels=c('0', '25', '50', '75', '100')) +
     
     {if(!legendOrNo) theme(legend.position='none')} +
     {if(ynameOrNo) ylab('% of reads with deletion')} +
