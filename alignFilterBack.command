@@ -122,7 +122,7 @@ do
     exit 1
     fi
 
-    # will assume one is R1, one is R2
+    # will assume one is _R1 (or _1), one is _R2 (or _2)
     # but will not assume which is which
     first=$(echo "$reads" | head -n 1)
     second=$(echo "$reads" | head -n 2 | tail -n 1)

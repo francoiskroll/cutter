@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# below to time execution
+start=$(date +%s)
+
 # 31/01/2025
 # v0
 # was making a new script for each new amplicon
@@ -154,7 +157,13 @@ do
   
   # now, I prefer to simply use CRISPResso for alignment,
   # and call all the mutations myself
-  CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq "$refseq" --output_folder "$outdir"
+
+  # note 09/09/2025 --suppress_report --suppress_plots make a big difference in speed (21 sec to 6 sec on a test sample)
+  CRISPResso --fastq_r1 "$FWD" --fastq_r2 "$RVS" --amplicon_seq "$refseq" --output_folder "$outdir" --suppress_report --suppress_plots
 done
 
 shopt -u nullglob
+
+# report on time it took
+end=$(date +%s)
+echo "Ran in $((end - start)) seconds"
