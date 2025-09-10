@@ -28,6 +28,7 @@ classifyReads <- function(mut,
                           whichScaff='std',
                           scaffWin=NA,
                           unwantedSubs=FALSE,
+                          nreadsSample=NA,
                           exportpath) {
   
   ### check export path ends with .csv
@@ -74,6 +75,31 @@ classifyReads <- function(mut,
     cat('\t \t \t \t >>> Sample', muti, 'out of', length(mutL), '\n')
     mut <- mutL[[muti]]
     
+    ### sample fewer reads to analyse?
+    if(!is.na(nreadsSample)) {
+      
+      # check integer or double
+      if(!is.integer(nreadsSample) & !is.double(nreadsSample))
+        stop('\t \t \t \t Error classifyReads: nreadsSample should be NA or an integer, e.g. 1000.\n')
+      
+      # ! if asking to sample more reads than there are in this sample, just keep all reads
+      # how many reads do we have?
+      nrids <- length(unique(mut$rid))
+      
+      # if trying to sample more, tell user and keep every read
+      if(nreadsSample > nrids) {
+        cat('\t \t \t \t >>> Trying to sample', nreadsSample, ', but there are only', nrids, 'reads in this sample. We will analyse all.\n')
+        splcov_new <- unique(mut$splcov)
+      } else {
+        # sample nreads from the unique reads in mut
+        rid2keep <- sample(unique(mut$rid), nreadsSample, replace=FALSE)
+        
+        mut <- mut %>%
+          filter(rid %in% rid2keep)
+        splcov_new <- nreadsSample
+      }
+    }
+    
     ### mode PRECISE
     if(mode=='precise') {
       
@@ -81,23 +107,31 @@ classifyReads <- function(mut,
       if(length(unique(mut$pestrand))>1)
         stop('\t \t \t \t >>> Error classifyReads: more than one "pestrand" value within one sample, which does not make sense.\n')
       
-      return( preciseClassify_one(mut,
+      rlab <- preciseClassify_one(mut,
                                   scaffDetect=scaffDetect,
                                   pestrand=unique(mut$pestrand),
                                   whichScaff=whichScaff,
                                   scaffWin=scaffWin,
-                                  unwantedSubs=unwantedSubs) )
+                                  unwantedSubs=unwantedSubs)
       
     ### mode PRECISE_SIMPLE
     } else if(mode=='precise_simple') {
-      return( simpleClassify_one(mut,
-                                 unwantedSubs=unwantedSubs) )
+      rlab <- simpleClassify_one(mut,
+                                 unwantedSubs=unwantedSubs)
     
     ### mode FRAMESHIFT
     } else if(mode=='frameshift') {
-      return( frameshiftClassify_one(mut=mut) )
+      rlab <- frameshiftClassify_one(mut=mut)
     }
     
+    ### if we used nreadsSample, we need to update splcov
+    if(exists('splcov_new')) {
+      rlab$splcov <- splcov_new
+    }
+    
+    ### return into rlabL
+    return(rlab)
+
   })
   
   ### gather in one dataframe

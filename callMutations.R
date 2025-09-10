@@ -119,7 +119,7 @@ callMutations <- function(copath,
     # we can run allelesToMutations & filterMutations
     
     ### convert alleles table to mutation table
-    cat('\t \t \t \t >>> Calling mutations from', altxt,'\n')
+    cat('\n \n \t \t \t \t >>> Calling mutations from', altxt,'\n')
     muttb <- allelesToMutations(alpath=altxt)
     
     ### filter the detected mutations
