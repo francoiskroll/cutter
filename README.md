@@ -151,7 +151,7 @@ TODO: I am not sure about decision to add filtered-out reads as reference reads.
 
 Assigns categories to individual reads. Every read is assigned to one and only one category.
 
-There are two modes: `precise` and `frameshift`.
+There are two modes: `precise`, `precise_simple`, and `frameshift`.
 
 Mode `precise` is when a precise edit is expected, for example in the case of homology-directed repair, base editing, or prime editing. It will assign to each read one of the following labels:
 * `reference` if the read is reference; that is, there is no mutation* in the editing window.
@@ -160,7 +160,14 @@ Mode `precise` is when a precise edit is expected, for example in the case of ho
 * `impure` if the edit is present but the read also contains one or more unwanted mutations*.
 * `pure` if the edit is present and no other unwanted mutations* are present. 
 
->*Argument `unwantedSubs` (see below) controls whether substitutions count as unwanted mutations or no.
+Mode `precise_simple` is a simplified version of mode `precise` only using three labels:  
+* `reference`, cf. above.  
+* `mutated` if one or more unwanted mutations* are present in the read. Beware, if both the edit and a unwanted mutation are present, the read is labelled `mutated`, i.e. the "mutated" label takes priority. This is different in the `precise` mode.
+* `edit` if the edit is present and no other unwanted mutations* are present. This category is almost identical to the `pure` category in mode `precise`, with one exception: if `unwantedSubs` is OFF (`unwantedSubs=FALSE`), a read with the edit and a substitution scaffold incorporation would be labelled as `scaffold` in mode `precise` but `edit` here; if `unwantedSubs` is ON (`unwantedSubs=TRUE`), this read would also be labelled as `scaffold` in mode `precise` but `mutated` here.
+
+>*Argument `unwantedSubs` (see below) controls whether substitutions count as unwanted mutations or no. When OFF (`unwantedSubs=FALSE`), the `mutated` category can also be called "indels" as it will only include reads with deletions and/or insertions.
+
+TODO: if preciseClassify, scaffDetect is OFF; check it still includes scaffold insertions as indels.
 
 Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will assign to each read one of the following labels:
 * `reference` if the read is reference (no mutation around the PAM).
@@ -169,7 +176,7 @@ Mode `frameshift` is when generating indels with standard CRISPR-Cas9. It will a
 
 * `mut` mutation table, created by `callMutations`.
 
-* `mode` either `precise` or `frameshift`, see above. Default is `precise`.
+* `mode` either `precise` or `precise_simple` or `frameshift`, see above. Default is `precise`.
 
 * `scaffDetect` whether (`TRUE`) or not (`FALSE`) to detect scaffold incorporations. Default is not to detect scaffold incorporations (`scaffDetect=FALSE`).
 
@@ -353,7 +360,11 @@ Plots a stacked barplot showing, for each sample, proportions of reads with dele
 
 * `min_del_nreads` minimum number of reads with deletion a sample should have to be included in the plot. Default is 50 (`min_del_nreads=50`).
 
-* `colourLight` colour for the shortest microhomology (typically 1 bp). This should be the lightest colour, colours for longer microhomologies will be darker versions of this one.
+* `colourLight` colour for the shortest microhomology (typically 1 bp). This should be the lightest colour, colours for longer microhomologies will be darker versions of this one. Default is `"#f1b9c7"`.
+
+* `splitby` ggMHdel split the plot into subplots arranged horizontally, `splitby` controls what the subplots correspond to. For example, `splitby=locus` will make one subplot for each locus (column `locus` in mutation table). Default is `grp`, which will make one subplot for each group (column `grp` in the mutation table).
+
+* `onlygrp` groups to plot. For example `onlygrp=c("inj", "ni")`. Default is `NA`, which will plot every group present in the mutation table (column `grp`).
 
 * `grporder` order of the groups, i.e. order of the subplots (facets). `NA` will follow alphabetical order. For example, `grporder=c('Cas9', 'PE2')`.
 
