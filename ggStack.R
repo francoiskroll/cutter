@@ -80,8 +80,8 @@ ggStack <- function(rlab,
                     onlycat='all',
                     grporder=NA,
                     locusorder=NA,
-                    catorder=c('reference', 'scaffold', 'mutated', 'impure', 'pure'),
-                    catcols=c('#aeb3b4', '#982150', '#fcb505', '#a3bbdb', '#417dcd'),
+                    catorder=NA,
+                    catcols=NA,
                     mincov=NA,
                     ymax=1.0,
                     titleOrNo=TRUE,
@@ -111,6 +111,38 @@ ggStack <- function(rlab,
     rlab <- read.csv(rlab)
   }
   # if not a string, we are given the dataframe so we do not have to import it
+  
+  
+  # if user did not give catorder,
+  # set defaults based on the mode
+  if(is.na(catorder[1])) {
+    
+    if(unique(rlab$mode)=='precise') {
+      catorder <- c('reference', 'scaffold', 'mutated', 'impure', 'pure')
+      
+    } else if(unique(rlab$mode)=='precise_simple') {
+      catorder <- c('reference', 'mutated', 'edit')
+      
+    } else if(unique(rlab$mode)=='frameshift') {
+      catorder <- c('reference', 'indel_inframe', 'indel_frameshift')
+    }
+  }
+
+  
+  # if user did not give catcols,
+  # set defaults based on the mode
+  if(is.na(catcols[1])) {
+    
+    if(unique(rlab$mode)=='precise') {
+      catcols <- c('#aeb3b4', '#982150', '#fcb505', '#a3bbdb', '#417dcd')
+      
+    } else if(unique(rlab$mode)=='precise_simple') {
+      catcols <- c('#aeb3b4', '#fcb505', '#417dcd')
+      
+    } else if(unique(rlab$mode)=='frameshift') {
+      catcols <- c('#aeb3b4', '#f7b8b1', '#EE7163')
+    }
+  }
   
   ### tally by sample and read category
   # e.g. for sample A01, we count all reference reads
