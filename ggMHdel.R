@@ -18,6 +18,8 @@ library(tidyr)
 ggMHdel <- function(mut,
                     min_del_nreads=50, # arbitrary
                     colourLight='#f1b9c7',
+                    splitby='grp',
+                    onlygrp=NA,
                     grporder=NA,
                     legendOrNo=TRUE,
                     titleOrNo=TRUE,
@@ -27,6 +29,13 @@ ggMHdel <- function(mut,
                     exportpath,
                     width=110,
                     height=65) {
+  
+  ### if onlygrp is given, keep only those groups
+  if(!is.na(onlygrp[1])) {
+    cat('\t \t \t \t >>> ggMHdel: not plotting groups', unique(mut$grp)[!unique(mut$grp) %in% onlygrp], '\n')
+    mut <- mut %>%
+      filter(grp %in% onlygrp)
+  }
   
   ### keep only deletions
   del <- mut %>%
@@ -100,7 +109,7 @@ ggMHdel <- function(mut,
     darken(col=colourLight, amount=0.08*bp)
   })
   # add colour for 0
-  catcols <- c('#5a6974', catcols)
+  catcols <- c('#d7d9da', catcols)
   
   # set the order of the groups (plot's facet)
   if(!is.na(grporder[1])) {
@@ -110,7 +119,11 @@ ggMHdel <- function(mut,
   #catcols <- c('#5a6974', '#c54867', '#db5072', '#e2738e', '#e996aa', '#f1b9c7')
 
   ggMhbp <- ggplot(mhtal, aes(x=sample, y=catpro, fill=MHbp)) +
-    facet_grid(~grp, scales='free_x', space='free') +
+    
+    {if(splitby=='rundate') facet_grid(~rundate, scales='free_x', space='free')} +
+    {if(splitby=='grp') facet_grid(~grp, scales='free_x', space='free')} +
+    {if(splitby=='locus') facet_grid(~locus, scales='free_x', space='free')} +
+    
     geom_col(width=0.8) +
     scale_fill_manual(drop=FALSE, values=catcols) +
     theme_minimal() +
