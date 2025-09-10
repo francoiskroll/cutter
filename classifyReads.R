@@ -37,6 +37,10 @@ classifyReads <- function(mut,
       stop('\t \t \t \t >>> exportpath should end with .csv.\n')
   }
   
+  ### check mode given
+  if(! mode %in% c('precise', 'precise_simple', 'frameshift'))
+    stop('\t \t \t \t >>> Error classifyReads: mode should be one of the following: "precise", "simple_precise", "frameshift".\n')
+  
   if(mode=='precise') {
     ### if scaffold detection is ON,
     # check rhapos is given in the mut table so we know where to look
@@ -84,7 +88,12 @@ classifyReads <- function(mut,
                                   scaffWin=scaffWin,
                                   unwantedSubs=unwantedSubs) )
       
-      ### mode FRAMESHIFT
+    ### mode PRECISE_SIMPLE
+    } else if(mode=='precise_simple') {
+      return( simpleClassify_one(mut,
+                                 unwantedSubs=unwantedSubs) )
+    
+    ### mode FRAMESHIFT
     } else if(mode=='frameshift') {
       return( frameshiftClassify_one(mut=mut) )
     }
@@ -96,6 +105,11 @@ classifyReads <- function(mut,
 
   # make sure it does not add row names
   row.names(rlab) <- NULL
+  
+  # add mode used as a column so we can use that info later
+  rlab <- rlab %>%
+    mutate(mode=mode, .after='rid')
+  
   # export
   if(!is.na(exportpath)) {
     write.csv(rlab, exportpath, row.names=FALSE)
