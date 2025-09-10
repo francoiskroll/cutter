@@ -66,18 +66,45 @@ callMutations <- function(copath,
   # which ones are CRISPResso result directories?
   dirs <- dirs[startsWith(basename(dirs), 'CRISPResso')]
   
-  ### find alleles table
-  # loop through the directories,
-  mutL <- lapply(1:length(dirs), function(di) {
-    cat('\n')
+  # we have all the CRISPResso output directories
+  
+  # loop through rows of meta file,
+  # for each, find the alleles table
+  # then call mutations
+  mutL <- lapply(1:nrow(meta), function(metarow) { # spi for sample i^th
+    
+    # well is
+    welli <- meta[metarow, 'well']
+    # locus is
+    locusi <- meta[metarow, 'locus']
+    
+    # from the CRISPResso folder name,
+    # try to identify which is the one
+    # split all the directory names
+    dirsplits <- strsplit(basename(dirs), '_')
+    
+    # find which one has well name & locus name
+    foundDir <- which(unlist(lapply(dirsplits, function(dirspli) {
+      (welli %in% dirspli) & (locusi %in% dirspli)
+    })))
+    # there should be one & only one
+    if(length(foundDir)>1) stop('\t \t \t \t Error callMutations: multiple CRISPResso directory names have well', welli, 'and locus', locusi,
+                                '. There should only be one CRISPResso directory for each unique well/locus pair.\n')
+    if(length(foundDir)==0) stop('\t \t \t \t Error callMutations: no CRISPResso directory names have well', welli, 'and locus', locusi, '.\n')
+    
+    # so the CRISPResso directory to analyse is
+    cridir <- dirs[foundDir]
+    
+    ### find alleles table
     # path to Alleles_frequency_table.zip should be:
-    alzip <- paste(dirs[di], 'Alleles_frequency_table.zip', sep='/')
+    alzip <- paste(cridir, 'Alleles_frequency_table.zip', sep='/')
+    
     # check we found it
     if(!file.exists(alzip)) {
       cat('\t \t \t \t >>> Warning: no Alleles_frequency_table.zip in folder', dirs[di], '. Skipping this sample.\n')
       return()
     }
-      
+    
     # unzip it in same folder
     unzip(alzip, exdir=dirname(alzip))
     # check unzipped file exists
@@ -86,34 +113,10 @@ callMutations <- function(copath,
     if(!file.exists(altxt))
       stop('\t \t \t \t >>> Error: after unzipping, expecting Alleles_frequency_table.txt in folder', dirs[di], '.\n')
     
-    ### find the corresponding row in meta file
-    # from meta,
-    # unique well names are:
-    wells <- unique(meta$well)
-    # unique locus names are:
-    loci <- unique(meta$locus)
-    # from the folder name,
-    ## try to find well name
-    # assumption: well name is in the folder name between some _
-    dirsplit <- unlist(strsplit(basename(dirs[di]), '_'))
-    wellnm <- dirsplit[which(dirsplit %in% wells)][1] # we take first occurence that looks like well name
-    if(length(wellnm)==0)
-      stop('\t \t \t \t >>> Error: did not find well name in directory name', dirs[di], '\n')
-    ## try to find locus name
-    locnm <- dirsplit[which(dirsplit %in% loci)][1] # we take first occurence of that looks like locus name
-    if(length(locnm)==0 | is.na(locnm))
-      stop('\t \t \t \t >>> Error: did not find locus name in directory name', dirs[di], '\n')
-    ## check that it makes sense in comparison with meta
-    # i.e. that this well coordinate has this locus
-    metarow <- intersect(which(meta$well==wellnm), which(meta$locus==locnm))
-    if(length(metarow)==0)
-      stop('\t \t \t \t >>> Error: there is no row in meta file that has well ', wellnm, ' and locus ', locnm,'.\n')
-    if(length(metarow)>1)
-      stop('\t \t \t \t >>> Error: there are multiple rows in meta file that has well ', wellnm, ' and locus ', locnm,'. Please make well/locus unique.\n')
-    
-    # we now have the corresponding row (index) in meta file
-    # can run allelesToMutations & filterMutations
-    # filterMutations will take parameters from the meta row
+    # we now have everything we need
+    # row in meta file with settings for filterMutations
+    # and corresponding alleles table
+    # we can run allelesToMutations & filterMutations
     
     ### convert alleles table to mutation table
     cat('\t \t \t \t >>> Calling mutations from', altxt,'\n')
@@ -166,9 +169,9 @@ callMutations <- function(copath,
     
     ### return filtered mutations
     return(mutf)
-    
   })
-  # we get list mutL which is table of filtered mutations for each sample
+  
+  # >>> we get list mutL which is table of filtered mutations for each sample
   # gather everything in one dataframe
   # we have locus & well to keep track of which mutation is from which sample
   mut <- do.call(rbind, mutL)
