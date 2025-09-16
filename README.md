@@ -151,7 +151,7 @@ TODO: I am not sure about decision to add filtered-out reads as reference reads.
 
 Assigns categories to individual reads. Every read is assigned to one and only one category.
 
-There are two modes: `precise`, `precise_simple`, and `frameshift`.
+There are three analysis modes: `precise`, `precise_simple`, and `frameshift`.
 
 Mode `precise` is when a precise edit is expected, for example in the case of homology-directed repair, base editing, or prime editing. It will assign to each read one of the following labels:
 * `reference` if the read is reference; that is, there is no mutation* in the editing window.

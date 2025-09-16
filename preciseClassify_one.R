@@ -187,7 +187,7 @@ preciseClassify_one <- function(mut,
       # we want to adjust scaffWin based on this; detection window should be bigger on the right if sequence happens to match
       # we simply add this many nucleotides to the end of the window
       if(nti>0) {
-        cat('\t \t \t \t >>>', nti, 'nucleotides before rhapos happen to match the expected scaffold incorporation, adjusting the search window...')
+        cat('\t \t \t \t \t >>>', nti, 'nucleotides before rhapos happen to match the expected scaffold incorporation, adjusting the search window...\n')
       }
       scaffWinAdj[2] <- scaffWinAdj[2] + nti
       # for example, 2 nt match, so scaffWin goes from c(0,0) to c(0,2)
