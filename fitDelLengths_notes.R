@@ -679,3 +679,28 @@ getmode(lens) # also 3 bp is the most common
 
 # we now have a fitted distribution of deletion lengths generated after Cas9 DSBs in zebrafish embryos
 # we can use this distribution to simulate 'random' deletions at any locus
+
+
+# polished plot for publication -------------------------------------------
+
+ggdelfit <- ggplot(dellenf, aes(x=bp, y=freq)) +
+  geom_col(fill='#8b8b8b') +
+  stat_function(
+    fun=dlnorm,
+    args=list(meanlog=flog$estimate[1],
+              sdlog=flog$estimate[2]),
+    colour='#cb2a20',
+    linewidth=0.5
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.minor.y=element_blank(),
+    axis.title.x=element_text(size=9),
+    axis.title.y=element_text(size=9),
+    axis.text.y=element_text(size=7),
+    axis.text.x=element_text(size=7)
+  ) +
+  xlab('deletion length (bp)') +
+  ylab('frequency')
+ggdelfit
+ggsave(here('~/Dropbox/cutter/dev_plots/delfreqCas9db.pdf'), ggdelfit, width=75, height=60, units='mm')

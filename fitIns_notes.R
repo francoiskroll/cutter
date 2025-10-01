@@ -615,7 +615,6 @@ ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
 
 # QQplot ------------------------------------------------------------------
 
-### log-normal
 draws <- rexp(n=10000, rate=fexp$estimate[1])
 
 qqplot(draws, lens)
@@ -656,3 +655,27 @@ getmode(lens)
 
 # we now have a fitted distribution of newlyseq lengths generated after Cas9 DSBs in zebrafish embryos
 # we can use this distribution to simulate 'random' insertions (newly synthesised sequences) at any locus
+
+
+
+# polished plot for publication -------------------------------------------
+
+ggdelfit <- ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+  geom_col(fill='#8b8b8b') +
+  stat_function(fun=dexp,
+                args=list(rate=fexp$estimate[1]),
+                colour='#cb2a20',
+                linewidth=0.5) +
+  theme_minimal() +
+  theme(
+    panel.grid.minor.y=element_blank(),
+    axis.title.x=element_text(size=9),
+    axis.title.y=element_text(size=9),
+    axis.text.y=element_text(size=7),
+    axis.text.x=element_text(size=7)
+  ) +
+  xlab('length of newly synthesised sequence (bp)') +
+  ylab('frequency')
+ggdelfit
+
+ggsave('~/Dropbox/cutter/dev_plots/newlyseqfreqCas9db.pdf', ggdelfit, width=75, height=60, units='mm')
