@@ -26,6 +26,7 @@ ggMHdel <- function(mut,
                     xtextOrNo=TRUE,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
+                    panelSpacing=NA,
                     exportpath,
                     width=110,
                     height=65) {
@@ -143,7 +144,8 @@ ggMHdel <- function(mut,
     
     {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
     {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
-    {if(!titleOrNo) theme(strip.text.x=element_blank())}
+    {if(!titleOrNo) theme(strip.text.x=element_blank())} +
+    {if(!is.na(panelSpacing)) theme(panel.spacing = unit(panelSpacing, 'pt'))}
   
   print(ggMhbp)
   
