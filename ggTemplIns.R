@@ -160,4 +160,6 @@ ggTemplIns <- function(mut,
   
   ggsave(exportpath, ggInsbp, width=width, height=height, units='mm')
   
+  return(lctal)
+  
 }
