@@ -71,7 +71,7 @@ callMutations <- function(copath,
   # loop through rows of meta file,
   # for each, find the alleles table
   # then call mutations
-  mutL <- lapply(1:nrow(meta), function(metarow) { # spi for sample i^th
+  mutL <- lapply(1:nrow(meta), function(metarow) {
     
     # well is
     welli <- meta[metarow, 'well']
@@ -101,7 +101,7 @@ callMutations <- function(copath,
     
     # check we found it
     if(!file.exists(alzip)) {
-      cat('\t \t \t \t >>> Warning: no Alleles_frequency_table.zip in folder', dirs[di], '. Skipping this sample.\n')
+      cat('\t \t \t \t >>> Warning: no Alleles_frequency_table.zip in folder', cridir, '. Skipping this sample.\n')
       return()
     }
     
