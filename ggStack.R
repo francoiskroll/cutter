@@ -89,6 +89,7 @@ ggStack <- function(rlab,
                     ytextOrNo=TRUE,
                     ynameOrNo=TRUE,
                     legendOrNo=TRUE,
+                    splcovOrNo=FALSE,
                     xgrid=FALSE,
                     titleSize=9,
                     ytitleSize=9,
@@ -250,6 +251,11 @@ ggStack <- function(rlab,
   # categories will in stacked barplot from top to bottom
   rtal$cat <- factor(rtal$cat, levels=catorder)
   
+  ### prepare coverage to be written like sample size on top of bar
+  # can do it whether or not user asked for it
+  covwrite <- rtal %>%
+    distinct(sample, .keep_all=TRUE)
+  
   ### plot
   ggstack <- ggplot(data=rtal, aes (x=sample, y=catpro, fill=cat)) +
     
@@ -263,6 +269,8 @@ ggStack <- function(rlab,
     geom_col(width=0.8) +
     scale_fill_manual(drop=FALSE, values=catcols) +
     theme_minimal() +
+    # write coverage on top of each bar?
+    {if(splcovOrNo) geom_text(data=covwrite, aes(x=sample, label=splcov, y=1.0), size=2)} +
     theme(
 
       panel.grid.minor=element_blank(),
