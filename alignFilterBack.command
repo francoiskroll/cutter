@@ -4,6 +4,7 @@
     # -c path to config.csv, c for config
     # -r path to folder with fastq reads, r for reads
     # -a path to folder with fasta reference sequences, a for alignment
+    # -u if present, we only have one fastq file per sample, rather than one with Fw reads and one with Rv reads
     # -l whether to filter the bam file or not; l for fiLter; filtering is ON if flag is given, OFF if not
 
 # in addition, flags from filterBAM.command:
@@ -49,13 +50,14 @@ checkDir() {
 
 ### read the flags/arguments given by user
 # each : means it requires an argument
-# -l does not require one, so : after
-while getopts c:r:a:le:f:s:d:p: flag
+# -u and -l do not require one, so no : after
+while getopts c:r:a:ule:f:s:d:p: flag
 do
     case "${flag}" in
         c) configpath=${OPTARG};;
         r) fastqpath=${OPTARG};;
         a) refpath=${OPTARG};;
+        u) unique=${OPTARG};;
         l) filter=${OPTARG};;
         e) min_phred=${OPTARG};;
         f) min_readspan=${OPTARG};;
@@ -116,53 +118,96 @@ do
     reads=$(find "$fastqpath" -type f -name "$well*")
 
     # check that exactly two fastq files were found
+    # except if 'unique' flag is on (means we have only one fastq file per sample)
     readscount=$(echo "$reads" | wc -l)
-    if [ "$readscount" -ne 2 ]; then
-    echo "Error: there should be exactly TWO fastq files starting with '$well', but found $readscount."
-    exit 1
+
+    ### if unique file... ###
+    if [[ $* == *-u* ]]
+    then
+        if [ "$readscount" -ne 1 ]; then
+        echo "Error: -u flag is present so there should be exactly ONE fastq files starting with '$well', but found $readscount."
+        exit 1
+        fi
+        
+        # we have fastq file already (as there is only one), variable $reads
+        # keep only filename
+        firstnm=$(basename "$reads")
+
+        echo "Forward reads = $reads"
+
+        ### find fasta reference in the folder given by user
+        refp=$(find "$refpath" -type f -name "$ref") # reference path
+
+        ### in summary:
+        echo "Aligning $reads to $refp"
+        echo ""
+
+        ### index the fasta reference
+        bwa index -a bwtsw "$refp"
+
+        ### do the alignment using bwa
+        # create the output bam filename, which should be well_ref.bam
+        # ref from config file should be ampliconname.fa
+        # from there, will get ampliconname to append to output filenames
+        amp="$(echo "$ref" | cut -d'.' -f 1)" # cut gets everything before first '.', so e.g. psen1_2.fa becomes psen1_2
+        # paste well and amp together, so we have e.g. A01_psen1_2
+        bam="$(echo "$well"$"_""$amp"$".bam")"
+        # we will put the bam file in the new folder we created above called 'bam'
+        bamp="$(echo "$outdir"$"/bam/""$bam")"
+
+        # will also sort with samtools
+        bwa mem -t 16 "$refp" "$reads" \
+        | samtools sort > "$bamp"
+
+    ### if fw/rv files... ###
+    else # i.e. -u is not present, so we expect two fastq per sample
+        if [ "$readscount" -ne 2 ]; then
+        echo "Error: there should be exactly TWO fastq files starting with '$well', but found $readscount."
+        exit 1
+        fi
+
+        # will assume one is _R1 (or _1), one is _R2 (or _2)
+        # but will not assume which is which
+        first=$(echo "$reads" | head -n 1)
+        second=$(echo "$reads" | head -n 2 | tail -n 1)
+        # keep only filename
+        firstnm=$(basename "$first")
+        # if first file has _R1 or _1 in its name
+        if [[ "$firstnm" == *"_R1"* || "$firstnm" == *"_1"* ]]; then
+            fwd="$first"
+            rvs="$second"
+        else
+            rvs="$first"
+            fwd="$second"
+        fi
+
+        echo "Forward reads = $fwd"
+        echo "Reverse reads = $rvs"
+
+        ### find fasta reference in the folder given by user
+        refp=$(find "$refpath" -type f -name "$ref") # reference path
+
+        ### in summary:
+        echo "Aligning $fwd & $rvs to $refp"
+        echo ""
+
+        ### index the fasta reference
+        bwa index -a bwtsw "$refp"
+
+        ### do the alignment using bwa
+        # create the output bam filename, which should be well_ref.bam
+        # ref from config file should be ampliconname.fa
+        # from there, will get ampliconname to append to output filenames
+        amp="$(echo "$ref" | cut -d'.' -f 1)" # cut gets everything before first '.', so e.g. psen1_2.fa becomes psen1_2
+        # paste well and amp together, so we have e.g. A01_psen1_2
+        bam="$(echo "$well"$"_""$amp"$".bam")"
+        # we will put the bam file in the new folder we created above called 'bam'
+        bamp="$(echo "$outdir"$"/bam/""$bam")"
+
+        # will also sort with samtools
+        bwa mem -t 16 "$refp" "$fwd" "$rvs" \
+        | samtools sort > "$bamp"
     fi
-
-    # will assume one is _R1 (or _1), one is _R2 (or _2)
-    # but will not assume which is which
-    first=$(echo "$reads" | head -n 1)
-    second=$(echo "$reads" | head -n 2 | tail -n 1)
-    # keep only filename
-    firstnm=$(basename "$first")
-    # if first file has _R1 or _1 in its name
-    if [[ "$firstnm" == *"_R1"* || "$firstnm" == *"_1"* ]]; then
-    fwd="$first"
-    rvs="$second"
-    else
-    rvs="$first"
-    fwd="$second"
-    fi
-
-    echo "Forward reads = $fwd"
-    echo "Reverse reads = $rvs"
-
-    ### find fasta reference in the folder given by user
-    refp=$(find "$refpath" -type f -name "$ref") # reference path
-
-    ### in summary:
-    echo "Aligning $fwd & $rvs to $refp"
-    echo ""
-
-    ### index the fasta reference
-    bwa index -a bwtsw "$refp"
-
-    ### do the alignment using bwa
-    # create the output bam filename, which should be well_ref.bam
-    # ref from config file should be ampliconname.fa
-    # from there, will get ampliconname to append to output filenames
-    amp="$(echo "$ref" | cut -d'.' -f 1)" # cut gets everything before first '.', so e.g. psen1_2.fa becomes psen1_2
-    # paste well and amp together, so we have e.g. A01_psen1_2
-    bam="$(echo "$well"$"_""$amp"$".bam")"
-    # we will put the bam file in the new folder we created above called 'bam'
-    bamp="$(echo "$outdir"$"/bam/""$bam")"
-
-    # will also sort with samtools
-    bwa mem -t 16 "$refp" "$fwd" "$rvs" \
-    | samtools sort > "$bamp"
 
     # check we did create a bam file
     checkPath "$bamp"
@@ -231,16 +276,26 @@ do
         samtools sort -n "$bamfiltp" -o "$bamfiltNSp"
 
         # ready to convert
-        bedtools bamtofastq -i "$bamfiltNSp" \
-            -fq  "$fwdfqp" -fq2 "$rvsfqp"
+        # ! if unique -u, below will throw every read because it cannot find mates
+        # use slightly different command
+        if [[ $* == *-u* ]]
+        then
+            bedtools bamtofastq -i "$bamfiltNSp" -fq "$fwdfqp"
+            checkPath "$fwdfqp" # check that we did create filtered Forward file
+            # now gunzip them
+            # it will delete original
+            gzip -f "$fwdfqp"
 
-        checkPath "$fwdfqp" # check that we did create filtered Forward file
-        checkPath "$rvsfqp" # check that we did create filtered Reverse file
-
-        # now gunzip them
-        # it will delete original
-        gzip -f "$fwdfqp"
-        gzip -f "$rvsfqp"
+        else
+            bedtools bamtofastq -i "$bamfiltNSp" \
+                -fq  "$fwdfqp" -fq2 "$rvsfqp"
+            checkPath "$fwdfqp" # check that we did create filtered Forward file
+            checkPath "$rvsfqp" # check that we did create filtered Reverse file
+            # now gunzip them
+            # it will delete original
+            gzip -f "$fwdfqp"
+            gzip -f "$rvsfqp"
+        fi
 
         # remove temporary file
         rm "$bamfiltNSp"
