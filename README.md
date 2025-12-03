@@ -543,3 +543,7 @@ Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 23
 * v8
     * New function `simulateIns` to simulate newly synthesised sequences, also detects longest common substring with sequences flanking the cut (like `detectTemplatedIns`). Goal is to provide an estimate of matches expected from chance.
     * New function `ggTemplIns`, similar to `ggMHdel` but fill colour of barplots corresponds to length of longest common substring.
+
+
+* v9
+New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", "deletion", "both".
