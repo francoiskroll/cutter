@@ -39,7 +39,7 @@ classifyReads <- function(mut,
   }
   
   ### check mode given
-  if(! mode %in% c('precise', 'precise_simple', 'frameshift'))
+  if(! mode %in% c('precise', 'precise_simple', 'frameshift', 'insdel'))
     stop('\t \t \t \t >>> Error classifyReads: mode should be one of the following: "precise", "simple_precise", "frameshift".\n')
   
   if(mode=='precise') {
@@ -103,13 +103,21 @@ classifyReads <- function(mut,
     ### mode PRECISE
     if(mode=='precise') {
       
-      # we should only have one 'pestrand'
-      if(length(unique(mut$pestrand))>1)
+      ## about 'pestrand' argument
+      pestrand <- unique(mut$pestrand)
+      
+      # we should not have more than one 'pestrand'
+      if(length(pestrand)>1)
         stop('\t \t \t \t >>> Error classifyReads: more than one "pestrand" value within one sample, which does not make sense.\n')
+      
+      # ! 'pestrand' may not be not given, make sure it is NA in that case
+      if(length(pestrand)==0) {
+        pestrand <- NA
+      }
       
       rlab <- preciseClassify_one(mut,
                                   scaffDetect=scaffDetect,
-                                  pestrand=unique(mut$pestrand),
+                                  pestrand=pestrand,
                                   whichScaff=whichScaff,
                                   scaffWin=scaffWin,
                                   unwantedSubs=unwantedSubs)
@@ -122,6 +130,11 @@ classifyReads <- function(mut,
     ### mode FRAMESHIFT
     } else if(mode=='frameshift') {
       rlab <- frameshiftClassify_one(mut=mut)
+    
+      
+    ### mode INSDEL
+    } else if(mode=='insdel') {
+      rlab <- insdelClassify_one(mut=mut)
     }
     
     ### if we used nreadsSample, we need to update splcov
