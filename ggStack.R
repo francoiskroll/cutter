@@ -96,6 +96,7 @@ ggStack <- function(rlab,
                     ytextSize=7,
                     panelSpacing=NA,
                     exportOrNo=TRUE,
+                    logOrNo=FALSE,
                     width=159.1,
                     height=82.03,
                     exportpath) {
@@ -126,6 +127,9 @@ ggStack <- function(rlab,
       
     } else if(unique(rlab$mode)=='frameshift') {
       catorder <- c('reference', 'indel_inframe', 'indel_frameshift')
+      
+    } else if(unique(rlab$mode)=='insdel') {
+      catorder <- c('noindel', 'both', 'insertion', 'deletion')
     }
   }
 
@@ -142,6 +146,9 @@ ggStack <- function(rlab,
       
     } else if(unique(rlab$mode)=='frameshift') {
       catcols <- c('#aeb3b4', '#f7b8b1', '#EE7163')
+      
+    } else if(unique(rlab$mode)=='insdel') {
+      catcols <- c('#e7e8e9', '#982150', '#b0beab', '#c77f93')
     }
   }
   
@@ -303,6 +310,23 @@ ggStack <- function(rlab,
     ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm')
   } else {
     cat('\t \t \t \t >>> Export is off.\n')
+  }
+  
+  
+  ### prepare & export log about samples plotted
+  if(logOrNo) {
+    logspl <- rtal %>%
+      distinct(sample, .keep_all=TRUE)
+    logspl$cat <- NULL
+    logspl$catpro <- NULL
+    # sort by whatever factor user gave as 'splitby'
+    logspl[[splitby]] <- as.factor(logspl[[splitby]])
+    logspl <- logspl[order(logspl[[splitby]]) , ]
+    
+    # prepare export
+    logtxtPath <- paste0(dirname(exportpath), '/',
+                         tools::file_path_sans_ext(basename(exportpath)), '_LOG.csv')
+    write.csv(logspl, logtxtPath, row.names=FALSE)
   }
   
   
