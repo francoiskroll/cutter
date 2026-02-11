@@ -21,6 +21,9 @@ library(MASS)
 
 # simulateDel -------------------------------------------------------------
 
+# 11/02/2026
+# can now handle multiple loci
+
 simulateDel <- function(mut,
                         nreads=1000,
                         cutDelbp=3,
@@ -28,100 +31,125 @@ simulateDel <- function(mut,
                         fit_meanlog=1.955957,
                         fit_sdlog=0.8970051) {
   
-  # get setting cutpos from the existing mut dataframe
-  # ! can only simulate a sample for *one* locus
-  # check that we only have one locus
-  if(length(unique(mut$locus))>1) stop('\t \t \t \t Error simulateDel: can only simulate a sample for *one* locus at a time.\n')
-  cutpos <- unique(mut$cutpos)
+  # loop through loci in mut
+  loci <- unique(mut$locus)
   
-  ### now simulate `nreads` with each a deletion
-  # step below is surprisingly slow...
-  simdelL <- lapply(1:nreads, function(i) {
-    cat('\t \t \t \t simulating read', i, 'of', nreads, '\n')
-    simulateDel_one(mut=mut,
-                    fit_meanlog=fit_meanlog,
-                    fit_sdlog=fit_sdlog,
-                    cutpos=cutpos,
-                    cutDelbp=3,
-                    awayfromCut=4)
-  })
-  simdel <- do.call(rbind, simdelL)
-  
-  # correct some column types
-  simdel$start <- as.integer(simdel$start)
-  simdel$stop <- as.integer(simdel$stop)
-  simdel$bp <- as.integer(simdel$bp)
-  
-  ### add rid
-  # normally done by alleleToMutation
-  # here, will simply be r1.1, r2.1, r3.1, etc.
-  # until e.g. r1000.1 if nreads=1000
-  simdel$rid <- sprintf('r%i.1', 1:nrow(simdel))
-  
-  ### add coverage
-  # copying from allelesToMutations so we get the same columns
-  # calculate total number of reads for this sample, i.e. coverage
-  # and add it as column
-  # here, we know this is exactly `nreads`
-  cat('\t \t \t \t >>> Total number of reads:', nreads, '\n')
-  simdel <- simdel %>%
-    mutate(splcov=nreads)
-  
-  ### run mutation table through filterMutations
-  # with all filters off
-  # just to get the same columns
-  simdel <- filterMutations(muttb=simdel,
-                            minnreads=NA,
-                            cutpos=NA,
-                            rhapos=NA,
-                            rhadist=NA,
-                            controltb=NA,
-                            callSubs=TRUE)
-  
-  ### add rundate, well, locus
-  # these we know are present in mut
-  simdel <- simdel %>%
-    mutate(well='Z99', .before=1) %>%
-    mutate(locus='simulated', .before=1) %>%
-    mutate(rundate=999999, .before=1)
-  
-  ### also create sample column
-  # which is rundate_well_locus
-  simdel <- simdel %>%
-    mutate(sample=paste(rundate, well, locus, sep='_'), .before=1)
-  
-  ### add last columns as NA
-  # find the ones we are missing from mut
-  # these were added from meta
-  cols2add <- colnames(mut) [! colnames(mut) %in% colnames(simdel)]
-  
-  for(colnm in cols2add) {
+  ### for each locus, simulate reads
+  simdelL <- lapply(loci, function(li) {
+    
+    cat('\t \t \t \t Simulating deletion reads for locus', li, '\n')
+    
+    # mutation table for one locus
+    mutli <- mut %>%
+      filter(locus==li)
+    
+    # check we only have one locus to be safe
+    # check that we only have one locus
+    if(length(unique(mutli$locus))>1) stop('\t \t \t \t Error simulateDel: can only simulate a sample for *one* locus at a time.\n')
+    # get setting cutpos from the existing mut dataframe
+    cutpos <- unique(mutli$cutpos)
+    
+    ### now simulate `nreads` with each a deletion
+    # step below is surprisingly slow...
+    simdelL <- lapply(1:nreads, function(i) {
+      cat('\t \t \t \t simulating read', i, 'of', nreads, '\n')
+      simulateDel_one(mut=mutli,
+                      fit_meanlog=fit_meanlog,
+                      fit_sdlog=fit_sdlog,
+                      cutpos=cutpos,
+                      cutDelbp=3,
+                      awayfromCut=4)
+    })
+    simdel <- do.call(rbind, simdelL)
+    
+    # correct some column types
+    simdel$start <- as.integer(simdel$start)
+    simdel$stop <- as.integer(simdel$stop)
+    simdel$bp <- as.integer(simdel$bp)
+    
+    ### add rid
+    # normally done by alleleToMutation
+    # here, will simply be r1.1, r2.1, r3.1, etc.
+    # until e.g. r1000.1 if nreads=1000
+    simdel$rid <- sprintf('r%i.1', 1:nrow(simdel))
+    
+    ### add coverage
+    # copying from allelesToMutations so we get the same columns
+    # calculate total number of reads for this sample, i.e. coverage
+    # and add it as column
+    # here, we know this is exactly `nreads`
+    cat('\t \t \t \t >>> Total number of reads:', nreads, '\n')
     simdel <- simdel %>%
-      mutate(tmp=NA, .before='well')
-    # now put the correct column name
-    colnames(simdel)[which(colnames(simdel)=='tmp')] <- colnm
-  }
+      mutate(splcov=nreads)
+    
+    ### run mutation table through filterMutations
+    # with all filters off
+    # just to get the same columns
+    simdel <- filterMutations(muttb=simdel,
+                              minnreads=NA,
+                              cutpos=NA,
+                              rhapos=NA,
+                              rhadist=NA,
+                              controltb=NA,
+                              callSubs=TRUE)
+    
+    ### add rundate, locus, grp, well
+    # these we know are present in mut
+    # add correct locus name
+    # grp: make it locus_simulated
+    simdel <- simdel %>%
+      mutate(well='sim', .before=1) %>%
+      mutate(grp=paste(unique(mutli$locus), 'simulated', sep='_')) %>%
+      mutate(locus=unique(mutli$locus), .before=1) %>%
+      mutate(rundate=999999, .before=1)
+    
+    ### also create sample column
+    # which is rundate_well_locus
+    simdel <- simdel %>%
+      mutate(sample=paste(rundate, well, locus, sep='_'), .before=1)
+    
+    ### add last columns as NA
+    # find the ones we are missing from mut
+    # these were added from meta
+    cols2add <- colnames(mutli) [! colnames(mutli) %in% colnames(simdel)]
+    
+    for(colnm in cols2add) {
+      simdel <- simdel %>%
+        mutate(tmp=NA, .before='well')
+      # now put the correct column name
+      colnames(simdel)[which(colnames(simdel)=='tmp')] <- colnm
+    }
+    
+    ### if cutpos column is present, fill it with actual info given by user
+    if('cutpos' %in% colnames(simdel)) {
+      simdel$cutpos <- cutpos
+    }
+    
+    return(simdel)
+    # simdel gets added to list simdelL
+    
+  }) # closes lapply
+  # we now have one simdel dataframe per locus
+  # stored in a list
   
-  ### if cutpos column is present, fill it with actual info given by user
-  if('cutpos' %in% colnames(simdel)) {
-    simdel$cutpos <- cutpos
-  }
+  # rbind the list (we can keep track of locus through locus column)
+  simdf <- do.call(rbind, simdelL)
   
-  ### add simulated reads to mut
-  # first put the columns of simdel in the same order as in mut
+  ### add all simulated reads to mut
+  # first put the columns of simdf in the same order as in mut
   
   # check columns are identical (before looking at their positions)
-  if(!identical( sort(colnames(mut)) , sort(colnames(simdel))))
+  if(!identical( sort(colnames(mut)) , sort(colnames(simdf))))
     stop('\t \t \t \t >>> Error simulateDel: all columns of mut are not in simdel, or vice-versa.\n')
   
-  # now put the columns of simdel in the same order
-  simdel <- simdel[, colnames(mut) ]
+  # now put the columns of simdf in the same order
+  simdf <- simdf[, colnames(mut) ]
   # check correct
-  if(!identical(colnames(mut), colnames(simdel)))
-    stop('\t \t \t \t >>> Error simulateDel: columns of simdel are not in the same order as columns of mut.\n')
+  if(!identical(colnames(mut), colnames(simdf)))
+    stop('\t \t \t \t >>> Error simulateDel: columns of simdf are not in the same order as columns of mut.\n')
   
   # can now rbind
-  mutsim <- rbind(mut, simdel)
+  mutsim <- rbind(mut, simdf)
   # and we return result
   return(mutsim)
   
