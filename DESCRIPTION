@@ -1,0 +1,24 @@
+Package: cutter
+Title: The CRISPR Mutations Caller
+Version: 0.0.0.9000
+Authors@R: 
+    person("Francois", "Kroll", , "francois@kroll.be", role = c("aut", "cre"))
+Description: The R package cutter calls mutations, typically made by CRISPR-based tools, from CRISPResso2 alignments. It was specifically designed to call mutations (precise edits, indels, etc.) made by prime editing and detect indels with a signature of microhomology-mediated end-joining, namely deletions flanked by microhomologies and templated insertions.
+License: `use_gpl3_license()`
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    data.table,
+    dplyr,
+    openxlsx,
+    Biostrings,
+    stringi,
+    tidyr,
+    tibble,
+    ggplot2,
+    colorspace,
+    stringr,
+    forcats,
+    scales,
+    MASS
