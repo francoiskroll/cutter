@@ -1,4 +1,4 @@
-# "cutter" – the CRISPR mutations caller 
+# cutter – the CRISPR mutations caller 
 
 ## Installation
 ```
