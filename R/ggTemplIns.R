@@ -30,6 +30,8 @@
 #' @export
 #'
 #' @examples
+#' @importFrom forcats fct_na_value_to_level
+#' @importFrom scales rescale
 ggTemplIns <- function(mut,
                        min_ins_nreads=50, # arbitrary
                        colourLow='#e4eee0',

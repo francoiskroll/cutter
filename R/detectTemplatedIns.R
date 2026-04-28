@@ -427,6 +427,8 @@ newlySynthesised <- function(alrow,
 #' @export
 #'
 #' @examples
+#' @importFrom Biostrings pmatchPattern
+#' @importFrom stringi stri_locate
 searchLCS <- function(alrow,
                       newlyseq,
                       newlyseqStart,

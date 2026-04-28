@@ -99,6 +99,7 @@
 #' @export
 #'
 #' @examples
+#' @import ggplot2
 ggStack <- function(rlab,
                     splitby='locus',
                     onlyrundate='all',

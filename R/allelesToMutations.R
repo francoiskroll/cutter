@@ -27,13 +27,14 @@
 #' @export
 #'
 #' @examples
+#' @import dplyr
 allelesToMutations <- function(alpath) {
 
 
 
   ### import
   # als for alleles table
-  als <- as.data.frame(fread(alpath))
+  als <- as.data.frame(data.table::fread(alpath))
 
   ### loop through it row by row
   # each row, call alleleToMutation()

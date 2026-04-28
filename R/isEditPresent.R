@@ -58,6 +58,7 @@ subToSingleNt <- function(mutid) {
 #' @export
 #'
 #' @examples
+#' @importFrom stringr str_detect
 isEditPresent <- function(expedit,
                           mutid) {
 

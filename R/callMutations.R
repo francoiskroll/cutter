@@ -31,6 +31,7 @@
 #' @export
 #'
 #' @examples
+#' @import dplyr
 callMutations <- function(copath,
                           metapath,
                           minnreads=NA,
@@ -55,7 +56,7 @@ callMutations <- function(copath,
   if(frmt!='xlsx')
     stop('\t \t \t \t >>> Expecting meta file to be .xlsx.\n')
   # import it
-  meta <- read.xlsx(metapath)
+  meta <- openxlsx::read.xlsx(metapath)
 
   # it has to have at least columns rundate & well & locus
   if(!'rundate' %in% colnames(meta))
