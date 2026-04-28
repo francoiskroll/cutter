@@ -12,7 +12,7 @@ Installation should take a few minutes at most, depending on the dependency pack
 
 As example, we will reproduce the main plots of the ctnnb1 figure.
 
-Download exampleDataset.zip and unzip it. Inside *crispresso* are the output files from CRISPResso2. 
+Download exampleDataset.zip and unzip it. Inside *crispresso* are the output files from CRISPResso2. The directory also includes the output files and plots. _minimalExample.R_ repeats the commands below.
 
 ### 0 – before cutter
 We will not go through how to get the CRISPResso2 files in detail. The main steps from fastq files were:
