@@ -1,5 +1,218 @@
 # "cutter" – the CRISPR mutations caller 
 
+## Installation
+```
+install.packages('remotes')
+remotes::install_github("francoiskroll/cutter")
+```
+
+Installation should take a few minutes at most, depending on the dependency packages that need to be installed.
+
+## Minimal example
+
+As example, we will reproduce the main plots of the ctnnb1 figure.
+
+Download exampleDataset.zip and unzip it. Inside *crispresso* are the output files from CRISPResso2. 
+
+### 0 – before cutter
+We will not go through how to get the CRISPResso2 files in detail. The main steps from fastq files were:
+
+```
+conda activate miseq
+alignFilterBack.command -c ./config.xlsx -r ./reads/ -a ./refseqs/ -l -d 30 -f 90 -s 0.2 -p yes
+```
+
+* `config.xlsx`: see example in repo, the one used for ctnnb1 is provided in _toAlign_.
+* _toAlign/refseqs_ also includes the reference sequence `ctnnb1_156bp.fa`.
+
+Then to align using CRISPResso2:
+
+```
+cd ~/.../filterfastq
+alignCrispresso2.command -a ../refseqs/
+```
+
+Scripts **alignFilterBack.command** and **alignCrispresso2.command** are included in repo in *align*. filterBam.command and readsToThrow.R are dependencies for alignFilterBack. See more notes below.
+
+### 1 – call mutations
+
+Each CRISPResso2 output directory (e.g., CRISPResso_on_D01_ctnnb1_156bp_R1_D01_ctnnb1_156bp_R2) contains a Alleles_frequency_table.zip. You can unzip one and look at the Alleles_frequency_table.txt file inside. The alignments cutter uses for each sample are the columns Aligned_Sequence and Reference_Sequence. It does not use the other files in the directory.
+
+```
+mut <- callMutations(copath=here('exampleDataset/crispresso/'),
+                     metapath=here('exampleDataset/meta.xlsx'),
+                     minnreads=3,
+                     controltb=NA,
+                     callSubs=TRUE,
+                     exportpath=here('exampleDataset/mutcalls.csv'))
+```
+
+*meta.xlsx* (provided) gives settings for analysis. Find full documentation below. 
+
+`callMutations` will output object _mut_ and write *mutcalls.csv* which lists all mutations detected in the reads. Each row represents a single read; that is, if the same mutation is found in two reads, it will be present as two separate rows. A given read can have multiple rows if it contained multiple mutations (e.g., a substitution and an insertion).
+
+### 2 – classify reads
+
+Now that we have all mutations listed, we can go through read by read and assign each read with a label, in this case "reference" or "pure" (edit) or "impure" (edit) or "mutated" (unwanted mutation) or "scaffold". See below for more details about the labels.
+
+```
+rlab <- classifyReads(mut=mut,
+                      mode='precise',
+                      scaffDetect=TRUE,
+                      whichScaff='std2',
+                      scaffWin=NA,
+                      unwantedSubs=FALSE, # we do not call substitutions as unwanted mutations, unless they are scaffold incorporation
+                      exportpath=here('exampleDataset/readcalls.csv'))
+```
+
+Find full documentation below. Here, `unwantedSubs=FALSE` means we do not call substitutions as unwanted mutations, unless they are scaffold incorporation. With this setting, the label "mutated" can also be called "indel" as it will only include reads with unwanted insertions and/or deletions.
+
+`classifyReads` will output object _rlab_ and write *readlabels.csv*. Each row represents a single read and column `cat` (category) gives its label. The columns `expedit`, `mut`, `scaffold` are booleans summarising what kind of mutations were found in the read. These three booleans determine the category. For example, a read with `expedit FALSE`, `mut TRUE`, `scaffold FALSE` will be labelled `impure`.
+
+### 3 – stacked barplot
+
+We can do our first plot using `ggStack`.
+
+```
+rtal <- ggStack(rlab=rlab,
+                splitby='grp',
+                grporder=c('ni', 'inj'),
+                locusorder=NA,
+                mincov=100,
+                xtextOrNo=FALSE,
+                ytextOrNo=TRUE,
+                panelSpacing=2,
+                ynameOrNo=TRUE,
+                legendOrNo=FALSE,
+                titleOrNo=FALSE,
+                titleSize=5,
+                exportOrNo=TRUE,
+                width=65,
+                height=55,
+                exportpath=here('exampleDataset/stack.pdf'))
+```
+
+`ggStack` plots, for each sample, a bar with colours representing the percentage of reads assigned to each label. Here, `mincov=100` means that any sample with fewer than 100 reads is excluded from the plot. For other arguments, find full documentation below. 
+
+`ggStack` returns a dataframe (here saved as `rtal` for read tallies) storing, for each sample, the number and proportion of reads with each label.
+
+We have now reproduced the first figure of the ctnnb1 figure. Note, in the published figure, four uninjected samples were excluded to make space as they are redundant.
+
+
+### 4 – detect & plot deletions flanked by microhomologies
+
+We first prepare the simulated sample (see figure) by generating 1000 reads each with one simulated deletion. Find below details about how deletions are simulated.
+
+```
+mut <- simulateDel(mut=mut,
+                   nreads=1000,
+                   cutDelbp=3,
+                   awayfromCut=4)
+```
+
+simulateDel will add the simulated reads as new rows in `mut`.
+
+We then detect, for each sample, deletions flanked by microhomologies. Find full documentation below.
+
+```
+mutmh <- detectMHdel(mut=mut,
+                     minMHlen=1)
+```
+
+`detectMHdel` adds columns to the mutation table (`mut`) describing the detected microhomologies, if any. Find below the full documentation about detection of microhomology-flanked deletions & the added columns.
+
+We can now plot the frequencies of microhomology-flanked deletions.
+
+```
+mhtal <- ggMHdel(mut=mutmh,
+                 min_del_nreads=50,
+                 grporder=c('inj', 'sim'),
+                 colourLight=NA,
+                 colourManual=c('#E9EBEC', '#C26682', '#C77F93', '#CD96A4', '#FFE4EA'),
+                 legendOrNo=FALSE,
+                 titleOrNo=FALSE,
+                 xtextOrNo=FALSE,
+                 ytextOrNo=TRUE,
+                 ynameOrNo=TRUE,
+                 exportpath=here('exampleDataset/stackMHdel.pdf'),
+                 width=70,
+                 height=55)
+```
+
+`ggMHdel` draws, for each sample, a stacked barplot. The total height of each bar represents all reads with a deletion in a given sample. The colours represent the proportions of deletion reads with a given microhomology length, with darker pink representing longer microhomologies. Here, `min_del_nreads=50` means that any sample with fewer than 50 reads with a deletion is excluded from the plot. For other arguments, find full documentation below. 
+
+`ggMHdel` returns a dataframe (here saved as `mhtal` for microhomology tallies) storing, for each sample, the number and proportion of deletion reads with 0 (no microhomologies), 1, 2, ... bp microhomologies.
+
+We have now reproduced the second plot of the ctnnb1 figure.
+
+### 5 – detect & plot templated insertions
+
+We first detect templated insertions from the mutation table.
+
+```
+mutins <- detectTemplatedIns(mut=mut,
+                             allowStretchMatches=5,
+                             extendNewlySeq=0,
+                             searchWindowStarts=20,
+                             minLCSbp=6)
+```
+
+`detectTemplatedIns` adds, for each insertion in the mutation table, additional columns storing the result of the templated insertion detection. Find details about how the detection works and what these columns tell you below.
+
+We then add the simulated sample, which is 1000 randomly generated insertions.
+
+```
+mutins <- simulateIns(mutdti=mutins,
+                      nreads=1000,
+                      extendNewlySeq=0,
+                      searchWindowStarts=20,
+                      minLCSbp=6)
+```
+
+Note, creating the simulated sample works a little differently for insertions than for deletions. For deletions, we simulated the deletion reads then ran the microhomology detection. Here, we first run the detection of templated insertions using `detectTemplatedIns` then add the simulated sample using `simulateIns`, which includes the detection of templated insertions.
+
+Detection & simulation of templated insertions can be a little time-consuming so it is a good idea to store the result as a csv file. For example,
+
+```
+write.csv(mutins, here('exampleDataset/mutcall_templins.csv'), row.names=FALSE)
+```
+
+When going back to the analysis, we can then skip the detection and import directly the result using
+```
+mutins <- read.csv(here('exampleDataset/mutcall_templins.csv'))
+```
+
+We are now ready to plot the frequencies of templated insertions.
+
+```
+lctal <- ggTemplIns(mut=mutins,
+                    min_ins_nreads=50,
+                    grporder=c('inj', 'sim'),
+                    colourLow='#e4eee0',
+                    colourHigh='#304528',
+                    legendOrNo=FALSE,
+                    titleOrNo=FALSE,
+                    xtextOrNo=FALSE,
+                    ytextOrNo=TRUE,
+                    ynameOrNo=TRUE,
+                    exportpath=here('exampleDataset/stackTemplIns.pdf'),
+                    width=70,
+                    height=55)
+```
+
+`ggTemplIns` draws, for each sample, a stacked barplot. The total height of each bar represents all reads with an insertion in a given sample. The colours represent the proportions of insertion reads with a given length of longest common subsequence between the newly synthesised sequence and the neighbouring sequences, with darker green colours representing longer common subsequences. Here, `min_ins_nreads=50` means that any sample with fewer than 50 reads with an insertion is excluded from the plot. For other arguments, find full documentation below. 
+
+`ggTemplIns` returns a dataframe (here saved as `lctal` for longest common subsequence tallies) storing, for each sample, the number and proportion of reads with an insertion that was templated from neighbouring sequences.
+
+We have now reproduced the third plot of the ctnnb1 figure.
+
+
+## Documentation
+
+(missing full documentation for callMutations)
+
+(missing full documentation for ggStack)
+
 Main script is **alignFilterBack.command**, which aligns MiSeq fastq reads to a fasta reference (uses `bwa mem`), then optionally filters the resulting BAM file and converts it back to fastq files; one R1 containing Forward reads, one R2 containing Reverse reads. To know which fasta reference to use for each pair of fastq files, it reads a config.xlsx file with two columns: _well_ & _ref_.
 
 Assuming filtering is ON, running on one pair of fastq files creates:
@@ -547,3 +760,5 @@ Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 23
 
 * v9
 New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", "deletion", "both".
+
+* v10 New functions `ggIGVdel` and `ggDelDot` written to represent deletion alleles.
