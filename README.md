@@ -732,33 +732,36 @@ Plots a stacked barplot showing, for each sample, proportions of reads with dele
 
 ### version history
 
-* v1
+* v0.1
 
-* v2  
+* v0.2  
 Detection of scaffold incorporation, currently just looks at substitutions or insertions that starts with G around end of RTT (end of RHA). Can control detection with `rhapos` and `scaffdetectwin`.
 
-* v3  
+* v0.3  
     * Detection of microhomology for deletions, see `detectMHdel`.  
     * `callMutations` now records every reference & aligned sequence from CRISPResso2 alleles table.
 
-* v4  
+* v0.4  
 Detection of insertions templated from sequences flanking the cut (`detectTemplatedIns`).
 
-* v5  
+* v0.5  
 New function `simulateDel` to simulate reads with deletions to provide a "null hypothesis" baseline for `detectMHdel`.
 
-* v6  
+* v0.6  
 More precise detection of scaffold incorporation in `preciseClassify_one`.
 
-* v7  
+* v0.7   
 Better fit of deletion lengths using Cas9MiSeqDB dataset v0 (n = 38 loci, n = 233 samples). See fitDelLengths_notes.R for details about fitting the log-normal distribution. The parameters of the distribution are now set as defaults in `simulateDel`.
 
-* v8
+* v0.8
     * New function `simulateIns` to simulate newly synthesised sequences, also detects longest common substring with sequences flanking the cut (like `detectTemplatedIns`). Goal is to provide an estimate of matches expected from chance.
     * New function `ggTemplIns`, similar to `ggMHdel` but fill colour of barplots corresponds to length of longest common substring.
 
 
-* v9
+* v0.9
 New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", "deletion", "both".
 
-* v10 New functions `ggIGVdel` and `ggDelDot` written to represent deletion alleles.
+* v0.10 New functions `ggIGVdel` and `ggDelDot` written to plot deletion alleles.
+
+* v1.0  
+Now an installable R package! Added "Minimal tutorial" section & exampleDataset.zip.
