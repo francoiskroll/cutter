@@ -730,7 +730,7 @@ Plots a stacked barplot showing, for each sample, proportions of reads with dele
 * `height` height of the pdf in mm. Default is 65 (`height=65`).
 
 
-### version history
+### Version history
 
 * v0.1
 
@@ -763,5 +763,4 @@ New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", 
 
 * v0.10 New functions `ggIGVdel` and `ggDelDot` written to plot deletion alleles.
 
-* v1.0  
-Now an installable R package! Added "Minimal tutorial" section & exampleDataset.zip.
+* v1.0 Now an installable R package! Added "Minimal tutorial" section & exampleDataset.zip.
