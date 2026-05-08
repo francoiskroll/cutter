@@ -8,6 +8,8 @@ remotes::install_github("francoiskroll/cutter")
 
 Installation should take a few minutes at most, depending on the dependency packages that need to be installed.
 
+I am on macos (currently Ventura 13.4), below was not tested on other operating systems.
+
 ## Minimal example
 
 As example, we will reproduce the main plots of the ctnnb1 figure.
@@ -233,10 +235,12 @@ tgtcaataaccgcacgttcaacagtgtgaaaggtaagatggagctgtattctcaccggatctgactgctggccaaAGGaa
 There are two PAMs: `AGG` and `CCT`.
 
 ## Dependencies
-* `samtools`
+* `samtools`  
+I use v1.6.  
 * `picard`  
-I had to install with homebrew, conda version had a conflict with Java.
-* `bwa-mem`
+I had to install with homebrew, conda version had a conflict with Java. I use 3.3.0.  
+* `bwa`
+I use v0.7.18.
 
 ### alignFilterBack.command
 
