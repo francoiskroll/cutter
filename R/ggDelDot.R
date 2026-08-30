@@ -47,6 +47,7 @@
 ggDelDot <- function(mut,
                      colMHdel='#c77f93',
                      minMHlen=1,
+                     ymax=NA,
                      xtextOrNo=TRUE,
                      xnameOrNo=TRUE,
                      ynameOrNo=TRUE,
@@ -158,17 +159,21 @@ ggDelDot <- function(mut,
 
   ## height at which we should write
   txtH <- max(mubia$bp) + 3
+  # of if ymax is given
+  if(!is.na(ymax)) {
+    txtH <- ymax
+  }
 
   ggdeldot <- ggdeldot +
     theme_minimal() +
-    coord_cartesian(xlim=c(-1, 1),
-                    ylim=c(0, txtH+1)) +
 
     theme(
       axis.text.x=element_text(size=7),
-      axis.text.y=element_text(size=7, margin=margin(r=-1)),
+      axis.text.y.left=element_text(size=7, margin=margin(r=0)),
       panel.grid.minor.x=element_blank(),
-      panel.grid.minor.y=element_blank()
+      panel.grid.minor.y=element_blank(),
+      plot.background=element_rect(fill = "transparent", colour = NA),
+      panel.background=element_rect(fill = "transparent", colour = NA)
     ) +
 
     {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
@@ -182,6 +187,9 @@ ggDelDot <- function(mut,
     {if(!legendOrNo) theme(legend.position='none')} +
 
     {if(!is.na(marginTB)) theme(plot.margin=margin(t=marginTB, r=5.5, b=marginTB, l=5.5))} +
+
+    {if(!is.na(ymax)) coord_cartesian(xlim=c(-1,1), ylim=c(0, ymax))} +
+    {if(is.na(ymax)) coord_cartesian(xlim=c(-1,1), ylim=c(0, txtH+1))} +
 
     scale_x_continuous(breaks=c(-1.0, -0.5, 0, 0.5, 1.0),
                        labels=c('-1.0', '', '0', '', '+1.0')) +

@@ -282,6 +282,10 @@ ggStack <- function(rlab,
     rtal <- rtal %>%
       filter(grp %in% grporder)
     rtal$grp <- factor(rtal$grp, levels=grporder)
+    # also order rtal rows in this order
+    rtal <- rtal[order(rtal$grp),]
+    # take the samples in this order and set as levels
+    rtal$sample <- factor(rtal$sample, levels=unique(rtal$sample))
   }
 
   ### control order of type in plot
@@ -324,8 +328,8 @@ ggStack <- function(rlab,
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
       axis.title.y=element_text(size=ytitleSize, margin=margin(t=0, r=-1, b=0, l=0)),
-      axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
-      axis.text.y=element_text(size=ytextSize, margin=margin(t=0, r=-1, b=0, l=0)),
+      axis.text.x.bottom=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
+      axis.text.y.left=element_text(size=ytextSize, margin=margin(t=0, r=1, b=0, l=0)),
       strip.text.x=element_text(size=titleSize)
       ) +
     coord_cartesian(ylim=c(0,ymax)) +
@@ -335,8 +339,8 @@ ggStack <- function(rlab,
     {if(ynameOrNo) ylab('% reads')} +
     {if(!ynameOrNo) ylab('')} +
 
-    {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
-    {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
+    {if(!xtextOrNo) theme(axis.text.x.bottom=element_blank())} +
+    {if(!ytextOrNo) theme(axis.text.y.left=element_blank())} +
     {if(!titleOrNo) theme(strip.text.x=element_blank())} +
     {if(!xgrid) theme(panel.grid.major.x=element_blank())} +
     {if(!legendOrNo) theme(legend.position='none')} +

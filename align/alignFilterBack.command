@@ -1,3 +1,6 @@
+# 15/08/2026
+# added option to trim, arguments -t and -b
+
 #!/bin/bash
 
 ### arguments are:
@@ -6,6 +9,11 @@
     # -a path to folder with fasta reference sequences, a for alignment
     # -u if present, we only have one fastq file per sample, rather than one with Fw reads and one with Rv reads
     # -l whether to filter the bam file or not; l for fiLter; filtering is ON if flag is given, OFF if not
+
+    # -t --trim whether to trim soft-clips. Allows to trim adapters/barcodes while being agnostic to their length/sequence.
+    # -b --barcodelen length of barcodes, 0 will trim all soft-clipping
+
+    # tip: probably best not to use -s --max_softprop if barcodes/adapters are present
 
 # in addition, arguments from filterBAM.command:
     # -i = input = bam file to process
@@ -17,6 +25,16 @@
     # -o = output = name of bam file to output
 
 shopt -s nullglob
+
+######################################
+### find the directory this script currently lives in, following symlinks
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPTDIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
 ######################################
 
@@ -51,7 +69,7 @@ checkDir() {
 ### read the flags/arguments given by user
 # each : means it requires an argument
 # -u and -l do not require one, so no : after
-while getopts c:r:a:ule:f:s:d:p: flag
+while getopts c:r:a:ule:f:s:d:p:tb: flag
 do
     case "${flag}" in
         c) configpath=${OPTARG};;
@@ -64,6 +82,8 @@ do
         s) max_softprop=${OPTARG};;
         d) dsbpad=${OPTARG};;
         p) primary=${OPTARG};;
+        t) trim=${OPTARG};;
+        b) barcodelen=${OPTARG};;
     esac
 done
 
@@ -98,6 +118,12 @@ if [[ $* == *-l* ]]
 then
     mkdir "$(echo "$outdir"$"/bamfilt")"
     mkdir "$(echo "$outdir"$"/filterfastqg")"
+fi
+
+### if trimming is ON, create new folder for trimmed BAMs
+if [[ $* == *-t* ]]
+then
+    mkdir "$(echo "$outdir"$"/bamtrim")"
 fi
 
 ################################################################################
@@ -244,6 +270,35 @@ do
         # filterBam.command includes sorting and indexing
         # check that we did create the filtered BAM file
         checkPath "$bamfiltp"
+
+    ################################
+        ### trim soft-clippings
+        # ! can only run if filtering is ON
+
+        # we trim if flag -t was given
+        if [[ $* == *-t* ]]
+        then
+
+            # trimmed bam to write is:
+            # well_referenceamplicon_trim.bam
+            bamtrim="$(echo "$well"$"_""$amp"$"_trim.bam")"
+            # we will put the trimmed bam file in a new folder we created above called 'bamtrim'
+            bamtrimp="$(echo "$outdir"$"/bamtrim/""$bamtrim")"
+
+            echo ""
+            echo ">>> Trimming "$bamfilt" into "$bamtrim""
+
+            python "$SCRIPTDIR/trim_softclips.py" "$bamfiltp" "$bamtrimp" --index-len "$barcodelen" --threads 4
+            samtools index "$bamtrimp"
+
+            # check that we did create the trimmed BAM file
+            checkPath "$bamtrimp"
+
+            # if we did trimmed, just replace the filtered BAM variable by the trimmed BAM variable
+            # so below can run normally
+            bamfilt="$bamtrim"
+            bamfiltp="$bamtrimp"
+        fi
 
         ################################
         ### convert back to fastq

@@ -48,6 +48,7 @@ ggMHdel <- function(mut,
                     splitby='grp',
                     onlygrp=NA,
                     grporder=NA,
+                    locusorder=NA,
                     legendOrNo=TRUE,
                     titleOrNo=TRUE,
                     xtextOrNo=TRUE,
@@ -147,9 +148,22 @@ ggMHdel <- function(mut,
   }
   cat('\t \t \t \t >>> Colours starting from 0 bp MH are: ', catcols, '\n')
 
-  # set the order of the groups (plot's facet)
+  ### control order of loci, if given by the user
+  if(!is.na(locusorder[1])) {
+    mhtal$locus <- factor(mhtal$locus, levels=locusorder)
+    # order the dataframe in that order
+    mhtal <- mhtal[order(mhtal$locus),]
+    # and order the samples in that order
+    mhtal$sample <- factor(mhtal$sample, levels=unique(mhtal$sample))
+  }
+
+  ### set the order of the groups (plot's facet)
   if(!is.na(grporder[1])) {
     mhtal$grp <- factor(mhtal$grp, levels=grporder)
+    # order the dataframe in that order
+    mhtal <- mhtal[order(mhtal$grp),]
+    # and order the samples in that order
+    mhtal$sample <- factor(mhtal$sample, levels=unique(mhtal$sample))
   }
 
   #catcols <- c('#5a6974', '#c54867', '#db5072', '#e2738e', '#e996aa', '#f1b9c7')
@@ -168,7 +182,7 @@ ggMHdel <- function(mut,
       axis.title.x=element_blank(),
       axis.title.y=element_text(size=9),
       # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
-      axis.text.y=element_text(size=7, margin=margin(t=0, r=-1, b=0, l=0)),
+      axis.text.y.left=element_text(size=7, margin=margin(t=0, r=1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0))) +
     scale_y_continuous(breaks=c(0, 0.25, 0.5, 0.75, 1.0),
                        labels=c('0', '25', '50', '75', '100')) +

@@ -39,6 +39,7 @@ ggIGVdel <- function(mut,
                      rangeStop=NA,
                      bpSides=NA,
                      titleOrNo=TRUE,
+                     grporder=NA,
                      orderdels='start',
                      ligPos=FALSE,
                      forceligPos=NA,
@@ -173,6 +174,11 @@ ggIGVdel <- function(mut,
   alls_l <- alls_l %>%
     filter(grp != 'ni')
 
+  # order grp, if given an order
+  if(!is.na(grporder[1])) {
+    alls_l$grp <- factor(alls_l$grp, levels=grporder)
+  }
+
   # crop a little, if given rangeStart/Stop
   # if not, leave everything
 
@@ -216,11 +222,12 @@ ggIGVdel <- function(mut,
       # (if there is only, will not change anything to do avergae)
       ligxintercept <- round(mean(ligxintercept))
     }
+    cat('\t \t \t \t >>> Ligation position at', ligxintercept, '\n')
 
   } else if(ligPos & is.numeric(forceligPos)) {
     ligxintercept <- forceligPos
+    cat('\t \t \t \t >>> Ligation position at', ligxintercept, '\n')
   }
-  cat('\t \t \t \t >>> Ligation position at', ligxintercept, '\n')
 
   # now we can plot
   ggigv <- ggplot(alls_l, aes(x=pos, y=grpmut)) +

@@ -768,3 +768,8 @@ New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", 
 * v0.10 New functions `ggIGVdel` and `ggDelDot` written to plot deletion alleles.
 
 * v1.0 Now an installable R package! Added "Minimal tutorial" section & exampleDataset.zip.
+
+* v1.1 Changes to plot aesthetics.
+    * `ggDelDot`: new argument `ymax`.
+    * `ggIGVdel`: new argument `grporder`.
+    * `ggMHdel`: new argument `locusorder`.

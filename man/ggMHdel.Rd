@@ -12,6 +12,7 @@ ggMHdel(
   splitby = "grp",
   onlygrp = NA,
   grporder = NA,
+  locusorder = NA,
   legendOrNo = TRUE,
   titleOrNo = TRUE,
   xtextOrNo = TRUE,

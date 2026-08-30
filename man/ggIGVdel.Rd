@@ -10,6 +10,7 @@ ggIGVdel(
   rangeStop = NA,
   bpSides = NA,
   titleOrNo = TRUE,
+  grporder = NA,
   orderdels = "start",
   ligPos = FALSE,
   forceligPos = NA,

@@ -8,6 +8,7 @@ ggDelDot(
   mut,
   colMHdel = "#c77f93",
   minMHlen = 1,
+  ymax = NA,
   xtextOrNo = TRUE,
   xnameOrNo = TRUE,
   ynameOrNo = TRUE,
