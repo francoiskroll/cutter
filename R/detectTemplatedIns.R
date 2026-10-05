@@ -516,10 +516,8 @@ searchLCS <- function(alrow,
 
   cat('\t \t \t \t >>> search window:', searchSeqFw, '\n')
 
-  # ! we also want to try search window from right to left
-  # (not reverse-complement, just reverse)
-  # I have seen examples where it is fairly convincing that it is the template
-  searchSeqRv <- stringi::stri_reverse(searchSeqFw)
+  # ! we also want to try search window in reverse-complement
+  searchSeqRv <- reversecomplement(searchSeqFw)
 
   # we now have searchSeqFw & searchSeqRv, our search windows
 
@@ -579,13 +577,13 @@ searchLCS <- function(alrow,
   }
 
   # locate the substring in original reference sequence
-  # ! depends if Forward or Reverse match
+  # ! depends if forward or reverse-complement match
   if(startsWith(lcnm, 'fw')) {
     lcdir <- 'fw'
     lcseqFw <- lcseq
   } else if(startsWith(lcnm, 'rv')) {
-    lcdir <- 'rv'
-    lcseqFw <- stringi::stri_reverse(lcseq)
+    lcdir <- 'rc'
+    lcseqFw <- reversecomplement(lcseq)
   }
 
   # now locate it

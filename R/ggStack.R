@@ -330,7 +330,9 @@ ggStack <- function(rlab,
       axis.title.y=element_text(size=ytitleSize, margin=margin(t=0, r=-1, b=0, l=0)),
       axis.text.x.bottom=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y.left=element_text(size=ytextSize, margin=margin(t=0, r=1, b=0, l=0)),
-      strip.text.x=element_text(size=titleSize)
+      strip.text.x=element_text(size=titleSize),
+      plot.background  = element_rect(fill = "transparent", colour = NA),
+      panel.background = element_rect(fill = "transparent", colour = NA)
       ) +
     coord_cartesian(ylim=c(0,ymax)) +
     scale_y_continuous(breaks=seq(0.0, 1.0, 0.1),
@@ -352,7 +354,7 @@ ggStack <- function(rlab,
   ### export plot
   if (!is.na(exportpath)) {
     cat('\t \t \t \t >>> Exporting to', exportpath, '.\n')
-    ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm')
+    ggsave(exportpath, plot=ggstack, width=width, height=height, unit='mm', bg='transparent')
   } else {
     cat('\t \t \t \t >>> Export is off.\n')
   }

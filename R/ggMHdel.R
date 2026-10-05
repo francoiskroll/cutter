@@ -179,6 +179,8 @@ ggMHdel <- function(mut,
     theme_minimal() +
     theme(
       panel.grid.minor=element_blank(),
+      plot.background  = element_rect(fill = "transparent", colour = NA),
+      panel.background = element_rect(fill = "transparent", colour = NA),
       axis.title.x=element_blank(),
       axis.title.y=element_text(size=9),
       # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
@@ -192,7 +194,7 @@ ggMHdel <- function(mut,
     {if(!ynameOrNo) ylab('')} +
 
     {if(!xtextOrNo) theme(axis.text.x=element_blank())} +
-    {if(!ytextOrNo) theme(axis.text.y=element_blank())} +
+    {if(!ytextOrNo) theme(axis.text.y.left=element_blank())} +
     {if(!titleOrNo) theme(strip.text.x=element_blank())} +
     {if(!is.na(panelSpacing)) theme(panel.spacing = unit(panelSpacing, 'pt'))}
 
@@ -203,7 +205,7 @@ ggMHdel <- function(mut,
   cat('\t \t \t \t groups plotted:', unique(mhtal$grp), '\n')
 
   if(!is.na(exportpath)) {
-    ggsave(exportpath, ggMhbp, width=width, height=height, units='mm')
+    ggsave(exportpath, ggMhbp, width=width, height=height, units='mm', bg='transparent')
   }
 
   return(mhtal)

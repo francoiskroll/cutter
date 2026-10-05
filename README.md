@@ -773,3 +773,7 @@ New classifyReads mode `insdel` which uses four labels: "noindel", "insertion", 
     * `ggDelDot`: new argument `ymax`.
     * `ggIGVdel`: new argument `grporder`.
     * `ggMHdel`: new argument `locusorder`.
+
+* v1.2
+    * Important correction to `detectTemplatedIns.R`: was looking for match in reverse (not reverse-complement) orientation. It should always have been reverse-complement. This will affect analyses done prior.
+    * New function `detectNHEJins`, currently consider as beta.
