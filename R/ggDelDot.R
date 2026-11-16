@@ -203,6 +203,12 @@ ggDelDot <- function(mut,
     ggsave(exportPath, ggdeldot, width=width, height=height, units='mm')
   }
 
-  return(ggdeldot)
+  ## return cleaned-up dataframe
+  cols2keep <- which(colnames(mubia) %in% c('rundate', 'locus', 'grp', 'cutpos', 'mutid', 'type', 'start', 'stop', 'bp', 'refseq', 'altseq', 'ref', 'ali',
+                                            'leftDel', 'rightDel', 'biasDif', 'biasDifPro'))
+  # only keep these columns
+  mubia <- mubia[,cols2keep]
+
+  return(mubia)
 
 }

@@ -60,12 +60,11 @@
 library(dplyr)
 library(tidyr)
 library(stringr)
+library(MASS)
 library(ggplot2)
+library(cutter)
 
-source('~/Dropbox/cutter/allelesToMutations.R')
-source('~/Dropbox/cutter/detectTemplatedIns.R')
-source('~/Dropbox/cutter/simulateDel.R')
-
+source('~/Dropbox/opn4b/utilities/theme.R')
 
 # import Cas9MiSeqDB ------------------------------------------------------
 # mutcalls
@@ -89,7 +88,7 @@ mut <- read.csv('~/Dropbox/Cas9MiSeqDB/mutcalls.csv')
 # write.csv(mutins, '~/Dropbox/cutter/dev/Cas9MiSeqDB_mutins.csv', row.names=FALSE)
 
 ### CHECKPOINT
-mutins <- read.csv('~/Dropbox/cutter/dev/Cas9MiSeqDB_mutins.csv')
+mutins <- read.csv('~/Dropbox/cutter_dev/dev/Cas9MiSeqDB_mutins.csv')
 
 ### keep only insertions
 # other rows are all NA for the templated insertion info anyways
@@ -193,7 +192,7 @@ ins[ins$spl_nreadsins > ins$splcov,]
 # would be a good idea to delete samples which have a low number of reads with insertions
 # so we do not extrapolate probabilities of newlyseq lengths from low sample size (number of reads with insertions)
 # say min. 100
-length( unique(ins[which(ins$spl_nreadsins < 50), 'sample']) ) 
+length( unique(ins[which(ins$spl_nreadsins < 50), 'sample']) )
 # Cas9DB v0:
 # 68 samples to exclude if min. 100 reads, 44%
 # 41 samples to exclude if min. 50 reads, 27%
@@ -213,7 +212,7 @@ length(unique(ins$locus))
 unique(ins$grp) # yes, only inj left
 
 # have a look at current distribution
-ggplot(ins, aes(x=newlyseq_bp)) + 
+ggplot(ins, aes(x=newlyseq_bp)) +
   geom_density()
 # looks like a similar distribution than deletions
 # note: min. is 7 bp
@@ -419,7 +418,7 @@ ggNewlyBp <- ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
   geom_col()
 ggNewlyBp
 
-ggsave('~/Dropbox/cutter/dev_plots/newlyseqfreq_Cas9DB.pdf', ggNewlyBp, width=70, height=70, units='mm')
+ggsave('~/Dropbox/cutter_dev/dev_plots/newlyseqfreq_Cas9DB.pdf', ggNewlyBp, width=70, height=70, units='mm')
 
 
 # fit distribution --------------------------------------------------------
@@ -461,44 +460,44 @@ freqBins(lens_nozero, every=1)
 # did not work for deletion length, will skip
 
 ### cauchy
-fcau <- fitdistr(lens, 'cauchy', lower=7)
+# fcau <- fitdistr(lens, 'cauchy', lower=7)
 
 ### chi-squared
 # similar than for beta, does not want any 0s
 # using mean as start was suggested by GPT
 start_df <- mean(lens) # I also tried median (as I have integers), very close result
-fchi <- fitdistr(lens, 'chi-squared', start=list(df = start_df))
+#fchi <- fitdistr(lens, 'chi-squared', start=list(df = start_df))
 
 ### exponential
 fexp <- fitdistr(lens, 'exponential', lower=7) # does not require start, cf. documentation
 
 ### gamma
-fgam <- fitdistr(lens, 'gamma', lower=7)
+# fgam <- fitdistr(lens, 'gamma', lower=7)
 
 ### geometric
-fgeo <- fitdistr(lens, 'geometric', lower=7)
+# fgeo <- fitdistr(lens, 'geometric', lower=7)
 
 ### lognormal
-flog <- fitdistr(lens, 'lognormal', lower=7) # "log-normal" gives same result
+# flog <- fitdistr(lens, 'lognormal', lower=7) # "log-normal" gives same result
 
 ### logistic
-floi <- fitdistr(lens, 'logistic', lower=7)
+# floi <- fitdistr(lens, 'logistic', lower=7)
 
 ### negative binomial
 # fbin <- fitdistr(lens, 'negative binomial', lower=7)
 # commented out because it throws error
 
 ### normal
-fnor <- fitdistr(lens, 'normal', lower=7) # does not require start, cf. documentation
+# fnor <- fitdistr(lens, 'normal', lower=7) # does not require start, cf. documentation
 
 ### Poisson
-fpoi <- fitdistr(lens, 'Poisson', lower=7) # does not require start, cf. documentation
+# fpoi <- fitdistr(lens, 'Poisson', lower=7) # does not require start, cf. documentation
 
 ### t
-ft <- fitdistr(lens, 't', lower=7)
+# ft <- fitdistr(lens, 't', lower=7)
 
 ### weibull
-fwei <- fitdistr(lens, 'weibull', lower=7)
+# fwei <- fitdistr(lens, 'weibull', lower=7)
 
 # there are 13 distributions
 # can proceed by elimination
@@ -510,12 +509,12 @@ fwei <- fitdistr(lens, 'weibull', lower=7)
 # change frequencies so we just have
 
 ### cauchy
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(fun=dcauchy,
-                args=list(location=fcau$estimate[1],
-                          scale=fcau$estimate[2]),
-                colour='red')
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(fun=dcauchy,
+#                 args=list(location=fcau$estimate[1],
+#                           scale=fcau$estimate[2]),
+#                 colour='red')
 # OK but I think no, in contrast to deletions, I think here should start at the maximum
 
 ### exponential
@@ -529,104 +528,104 @@ ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
 # extendNewlySeq=3 was the issue
 
 ### gamma
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dgamma,
-    args=list(shape=fgam$estimate[1],
-              rate=fgam$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dgamma,
+#     args=list(shape=fgam$estimate[1],
+#               rate=fgam$estimate[2]),
+#     colour='red'
+#   )
 # >> no!
 
 ### geometric
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dgeom,
-    args=list(prob=fgeo$estimate[1]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dgeom,
+#     args=list(prob=fgeo$estimate[1]),
+#     colour='red'
+#   )
 # >> no!
 
 ### log-normal
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dlnorm,
-    args=list(meanlog=flog$estimate[1],
-              sdlog=flog$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dlnorm,
+#     args=list(meanlog=flog$estimate[1],
+#               sdlog=flog$estimate[2]),
+#     colour='red'
+#   )
 # >> the fit is good but should start at the maximum
 
 ### logistic
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dlogis,
-    args=list(location=floi$estimate[1],
-              scale=floi$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dlogis,
+#     args=list(location=floi$estimate[1],
+#               scale=floi$estimate[2]),
+#     colour='red'
+#   )
 # >> not bad but does not start at the maximum
 
 
 ### negative binomial
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dnbinom,
-    args=list(size=fbin$estimate[1],
-              mu=fbin$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dnbinom,
+#     args=list(size=fbin$estimate[1],
+#               mu=fbin$estimate[2]),
+#     colour='red'
+#   )
 # >> no!
 
 
 ### normal
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dnorm,
-    args=list(mean=fnor$estimate[1],
-              sd=fnor$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dnorm,
+#     args=list(mean=fnor$estimate[1],
+#               sd=fnor$estimate[2]),
+#     colour='red'
+#   )
 # >> same again, fit is good but should start at the maximum
 
 
 ### poisson
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dpois,
-    args=list(lambda=fpoi$estimate[1]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dpois,
+#     args=list(lambda=fpoi$estimate[1]),
+#     colour='red'
+#   )
 # >> no; discrete
 
 
 ### t
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dt,
-    args=list(df=ft$estimate[3]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dt,
+#     args=list(df=ft$estimate[3]),
+#     colour='red'
+#   )
 # >> no
 
 
 ### weibull
-ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dweibull,
-    args=list(shape=fwei$estimate[1],
-              scale=fwei$estimate[2]),
-    colour='red'
-  )
+# ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dweibull,
+#     args=list(shape=fwei$estimate[1],
+#               scale=fwei$estimate[2]),
+#     colour='red'
+#   )
 # >> no!
 
 # >>> I think only exponential will start at the maximum
@@ -689,7 +688,7 @@ ggdelfit <- ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
                 args=list(rate=fexp$estimate[1]),
                 colour='#cb2a20',
                 linewidth=0.5) +
-  theme_minimal() +
+  # theme_minimal() + # take version from theme.R
   theme(
     panel.grid.minor.y=element_blank(),
     axis.title.x=element_text(size=9),
@@ -703,4 +702,4 @@ ggdelfit <- ggplot(inslenf, aes(x=newlyseq_bp, y=freq)) +
   scale_x_continuous(breaks=c(1, 25, 50, 75, 100))
 ggdelfit
 
-ggsave('~/Dropbox/cutter/dev_plots/newlyseqfreqCas9db.pdf', ggdelfit, width=75, height=60, units='mm')
+ggsave('~/Dropbox/cutter_dev/dev_plots/newlyseqfreqCas9db.pdf', ggdelfit, width=75, height=60, units='mm')

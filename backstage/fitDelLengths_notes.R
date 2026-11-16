@@ -37,20 +37,22 @@
 ### 28/07/2025
 # using Cas9MiSeqDB dataset v0
 
+library(here)
 library(ggplot2)
 library(MASS)
+library(cutter)
 
-source('~/Dropbox/cutter/simulateDel.R') # for function sumFreqBins
+source('~/Dropbox/opn4b/utilities/theme.R')
 
 # function strNthSplit ----------------------------------------------------
 
 strNthSplit <- function(stri,
                         split,
                         nth) {
-  
+
   # confirm we are given string(s)
   stri <- as.character(unlist(stri))
-  
+
   as.character(sapply(strsplit(stri, split=split),
                       function(s) {
                         s[nth]
@@ -164,7 +166,7 @@ length(unique(del$sample))
 unique(del$grp) # yes, only inj left
 
 # have a look at current distribution
-ggplot(del, aes(x=bp)) + 
+ggplot(del, aes(x=bp)) +
   geom_density()
 
 ### now to get the frequency of each deletion, out of all deletions in this sample
@@ -371,7 +373,7 @@ dellen_his <- sumFreqBins(df=dellenf,
 ggDelLen <- ggplot(dellen_his, aes(x=upbound, y=sumfreq)) +
   geom_col()
 ggDelLen
-ggsave(here('~/Dropbox/cutter/dev_plots/delfreq_Cas9DB.pdf'), ggDelLen, width=70, height=70, units='mm')
+ggsave(here('~/Dropbox/cutter_dev/dev_plots/delfreq_Cas9DB.pdf'), ggDelLen, width=70, height=70, units='mm')
 
 
 # fit distribution --------------------------------------------------------
@@ -417,43 +419,43 @@ freqBins(lens_nozero, every=1)
 # >> cannot make it fit, will skip
 
 ### cauchy
-fcau <- fitdistr(lens, 'cauchy', lower=1)
+# fcau <- fitdistr(lens, 'cauchy', lower=1)
 
 ### chi-squared
 # similar than for beta, does not want any 0s
 # using mean as start was suggested by GPT
-start_df <- mean(lens) # I also tried median (as I have integers), very close result
-fchi <- fitdistr(lens, 'chi-squared', start=list(df = start_df))
+# start_df <- mean(lens) # I also tried median (as I have integers), very close result
+# fchi <- fitdistr(lens, 'chi-squared', start=list(df = start_df))
 
 ### exponential
-fexp <- fitdistr(lens, 'exponential', lower=1) # does not require start, cf. documentation
+# fexp <- fitdistr(lens, 'exponential', lower=1) # does not require start, cf. documentation
 
 ### gamma
-fgam <- fitdistr(lens, 'gamma', lower=1)
+# fgam <- fitdistr(lens, 'gamma', lower=1)
 
 ### geometric
-fgeo <- fitdistr(lens, 'geometric', lower=1)
+# fgeo <- fitdistr(lens, 'geometric', lower=1)
 
 ### lognormal
 flog <- fitdistr(lens, 'lognormal', lower=1) # "log-normal" gives same result
 
 ### logistic
-floi <- fitdistr(lens, 'logistic') # lower=1 makes it fail
+# floi <- fitdistr(lens, 'logistic') # lower=1 makes it fail
 
 ### negative binomial
-fbin <- fitdistr(lens, 'negative binomial', lower=1)
+# fbin <- fitdistr(lens, 'negative binomial', lower=1)
 
 ### normal
-fnor <- fitdistr(lens, 'normal', lower=1) # does not require start, cf. documentation
+# fnor <- fitdistr(lens, 'normal', lower=1) # does not require start, cf. documentation
 
 ### Poisson
-fpoi <- fitdistr(lens, 'Poisson', lower=1) # does not require start, cf. documentation
+# fpoi <- fitdistr(lens, 'Poisson', lower=1) # does not require start, cf. documentation
 
 ### t
-ft <- fitdistr(lens, 't', lower=1)
+# ft <- fitdistr(lens, 't', lower=1)
 
 ### weibull
-fwei <- fitdistr(lens, 'weibull', lower=1)
+# fwei <- fitdistr(lens, 'weibull', lower=1)
 
 # there are 13 distributions
 # can proceed by elimination
@@ -465,43 +467,43 @@ fwei <- fitdistr(lens, 'weibull', lower=1)
 # change frequencies so we just have
 
 ### cauchy
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(fun=dcauchy,
-                args=list(location=fcau$estimate[1],
-                          scale=fcau$estimate[2]),
-                colour='red')
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(fun=dcauchy,
+#                 args=list(location=fcau$estimate[1],
+#                           scale=fcau$estimate[2]),
+#                 colour='red')
 # pretty good
 
 ### exponential
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(fun=dexp,
-                args=list(rate=fexp$estimate[1]),
-                colour='red')
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(fun=dexp,
+#                 args=list(rate=fexp$estimate[1]),
+#                 colour='red')
 # >> I think no; does not catch the lower frequency of very short deletions (1 or 2 bp)
 # which is probably real
 # distribution should not start at the maximum
 
 ### gamma
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dgamma,
-    args=list(shape=fgam$estimate[1],
-              rate=fgam$estimate[2]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dgamma,
+#     args=list(shape=fgam$estimate[1],
+#               rate=fgam$estimate[2]),
+#     colour='red'
+#   )
 # >> no; it puts frequency of 1-bp deletion at ~ 0 which is not right
 
 ### geometric
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dgeom,
-    args=list(prob=fgeo$estimate[1]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dgeom,
+#     args=list(prob=fgeo$estimate[1]),
+#     colour='red'
+#   )
 # >> no
 
 ### log-normal
@@ -516,72 +518,72 @@ ggplot(dellenf, aes(x=bp, y=freq)) +
 # very good!
 
 ### logistic
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dlogis,
-    args=list(location=floi$estimate[1],
-              scale=floi$estimate[2]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dlogis,
+#     args=list(location=floi$estimate[1],
+#               scale=floi$estimate[2]),
+#     colour='red'
+#   )
 # >> good but should go higher to catch the peak in the distribution
 
 
 ### negative binomial
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dnbinom,
-    args=list(size=fbin$estimate[1],
-              mu=fbin$estimate[2]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dnbinom,
+#     args=list(size=fbin$estimate[1],
+#               mu=fbin$estimate[2]),
+#     colour='red'
+#   )
 # >> no; I think it is a discrete distribution
 
 
 ### normal
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dnorm,
-    args=list(mean=fnor$estimate[1],
-              sd=fnor$estimate[2]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dnorm,
+#     args=list(mean=fnor$estimate[1],
+#               sd=fnor$estimate[2]),
+#     colour='red'
+#   )
 # >> ok but should go higher at the peak
 
 
 ### poisson
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dpois,
-    args=list(lambda=fpoi$estimate[1]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dpois,
+#     args=list(lambda=fpoi$estimate[1]),
+#     colour='red'
+#   )
 # >> no; discrete
 
 
 ### t
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dt,
-    args=list(df=ft$estimate[3]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dt,
+#     args=list(df=ft$estimate[3]),
+#     colour='red'
+#   )
 # >> no, starts the maximum
 
 
 ### weibull
-ggplot(dellenf, aes(x=bp, y=freq)) +
-  geom_col() +
-  stat_function(
-    fun=dweibull,
-    args=list(shape=fwei$estimate[1],
-              scale=fwei$estimate[2]),
-    colour='red'
-  )
+# ggplot(dellenf, aes(x=bp, y=freq)) +
+#   geom_col() +
+#   stat_function(
+#     fun=dweibull,
+#     args=list(shape=fwei$estimate[1],
+#               scale=fwei$estimate[2]),
+#     colour='red'
+#   )
 # >> not bad, but starts almost at the maximum, should start lower
 
 ### left in the race:
@@ -599,10 +601,10 @@ ggplot(dellenf, aes(x=bp, y=freq)) +
 # QQplot ------------------------------------------------------------------
 
 ### cauchy
-draws <- rcauchy(n=10000, location=fcau$estimate[1], scale=fcau$estimate[2])
+# draws <- rcauchy(n=10000, location=fcau$estimate[1], scale=fcau$estimate[2])
 
-qqplot(draws, lens)
-abline(0,1)
+# qqplot(draws, lens)
+# abline(0,1)
 # weird...
 
 ### log-normal
@@ -613,17 +615,17 @@ abline(0,1)
 # looks OKish
 
 ### logistic
-draws <- rlogis(n=10000, location=floi$estimate[1], scale=floi$estimate[2])
-
-qqplot(draws, lens)
-abline(0,1)
+# draws <- rlogis(n=10000, location=floi$estimate[1], scale=floi$estimate[2])
+#
+# qqplot(draws, lens)
+# abline(0,1)
 # does not look great
 
 ### normal
-draws <- rnorm(n=10000, mean=fnor$estimate[1], sd=fnor$estimate[2])
-
-qqplot(draws, lens)
-abline(0,1)
+# draws <- rnorm(n=10000, mean=fnor$estimate[1], sd=fnor$estimate[2])
+#
+# qqplot(draws, lens)
+# abline(0,1)
 # not bad but it draws negative values...
 # I think might exclude for this reason
 # or should use half a truncated gaussian?
@@ -639,16 +641,16 @@ abline(0,1)
 # will ignore but may be an issue
 
 ### cauchy
-ks.test(lens, 'pgamma', shape=fcau$estimate[1], rate=fcau$estimate[2]) # D = 0.79312 / p very low
+# ks.test(lens, 'pgamma', shape=fcau$estimate[1], rate=fcau$estimate[2]) # D = 0.79312 / p very low
 
 ### log-normal
 ks.test(lens, 'plnorm', meanlog=flog$estimate[1], sdlog=flog$estimate[2]) # D = 0.07 / p very low
 
 ### logistic
-ks.test(lens, 'plogis', location=floi$estimate[1], scale=floi$estimate[2]) # D = 0.174 / p very low
+# ks.test(lens, 'plogis', location=floi$estimate[1], scale=floi$estimate[2]) # D = 0.174 / p very low
 
 ### normal
-ks.test(lens, 'pnorm', mean=fnor$estimate[1], sd=fnor$estimate[2]) # D = 0.23 / p very low
+# ks.test(lens, 'pnorm', mean=fnor$estimate[1], sd=fnor$estimate[2]) # D = 0.23 / p very low
 
 # based on D distance statistic, log-normal is the best by far
 
@@ -705,7 +707,7 @@ ggdelfit <- ggplot(dellenf, aes(x=bp, y=freq)) +
     colour='#cb2a20',
     linewidth=0.5
   ) +
-  theme_minimal() +
+  # theme_minimal() + # use theme.R
   theme(
     panel.grid.minor.y=element_blank(),
     axis.title.x=element_text(size=9),
@@ -717,4 +719,4 @@ ggdelfit <- ggplot(dellenf, aes(x=bp, y=freq)) +
   ylab('frequency') +
   scale_x_continuous(breaks=c(1, 20, 40, 60))
 ggdelfit
-ggsave(here('~/Dropbox/cutter/dev_plots/delfreqCas9db.pdf'), ggdelfit, width=75, height=60, units='mm')
+ggsave(here('~/Dropbox/cutter_dev/dev_plots/delfreqCas9db.pdf'), ggdelfit, width=75, height=60, units='mm')

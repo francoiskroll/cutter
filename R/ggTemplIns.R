@@ -30,8 +30,6 @@
 #' @export
 #'
 #' @examples
-#' @importFrom forcats fct_na_value_to_level
-#' @importFrom scales rescale
 ggTemplIns <- function(mut,
                        min_ins_nreads=50, # arbitrary
                        colourLow='#e4eee0',
@@ -128,7 +126,7 @@ ggTemplIns <- function(mut,
   # to control levels just for ggplot2
   lctal <- lctal %>%
     mutate(
-      lcbp_gg = fct_na_value_to_level(factor(lcbp), level='NA'),
+      lcbp_gg = forcats::fct_na_value_to_level(factor(lcbp), level='NA'),
     )
 
   # prepare the levels
@@ -148,7 +146,7 @@ ggTemplIns <- function(mut,
   # map levels to colors
   fillCols <- c(
     'NA' = '#E9EBEC',
-    setNames(gradient_fn(rescale(num_lvls)), as.character(num_lvls))
+    setNames(gradient_fn(scales::rescale(num_lvls)), as.character(num_lvls))
   )
 
   # set the order of the groups (plot's facet)
@@ -165,7 +163,7 @@ ggTemplIns <- function(mut,
     theme(
       panel.grid.minor=element_blank(),
       axis.title.x=element_blank(),
-      axis.title.y=element_text(size=9),
+      axis.title.y=element_text(size=7),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y.left=element_text(size=7, margin=margin(t=0, r=1, b=0, l=0))) +
     scale_y_continuous(breaks=c(0, 0.25, 0.5, 0.75, 1.0),

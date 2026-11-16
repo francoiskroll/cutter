@@ -179,10 +179,8 @@ ggMHdel <- function(mut,
     theme_minimal() +
     theme(
       panel.grid.minor=element_blank(),
-      plot.background  = element_rect(fill = "transparent", colour = NA),
-      panel.background = element_rect(fill = "transparent", colour = NA),
       axis.title.x=element_blank(),
-      axis.title.y=element_text(size=9),
+      axis.title.y=element_text(size=7),
       # axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0)),
       axis.text.y.left=element_text(size=7, margin=margin(t=0, r=1, b=0, l=0)),
       axis.text.x=element_text(size=7, angle=90, hjust=1, vjust=0.5, margin=margin(t=-10, r=0, b=0, l=0))) +
