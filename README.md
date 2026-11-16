@@ -1,5 +1,7 @@
 # cutter – the CRISPR mutations caller 
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24285432.svg)](https://doi.org/10.5281/zenodo.24285432)
+
 ## Installation
 ```
 install.packages('remotes')
